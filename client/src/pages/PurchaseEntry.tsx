@@ -46,6 +46,14 @@ const PurchaseEntry = () => {
     },
   });
 
+  const { data: combinedPO } = useQuery({
+    queryKey: ['po_combined', new Date().toISOString().split('T')[0]],
+    queryFn: async () => {
+      const res = await api.get(`/po/combined-report?date=${new Date().toISOString().split('T')[0]}`);
+      return res.data;
+    }
+  });
+
   useEffect(() => {
     if ((todayPurchase as any)?.lines) {
       const init: Record<number, { qty: number; rate: number }> = {};
@@ -104,9 +112,20 @@ const PurchaseEntry = () => {
     saveMutation.mutate(lines);
   };
 
-  const filteredProducts = products?.filter((p: any) =>
-    selectedGroupId === '' || p.group_id === selectedGroupId
-  ) || [];
+  const requiredMap = new Map();
+  combinedPO?.data?.forEach((row: any) => {
+    requiredMap.set(row.product_id, row.total);
+  });
+
+  const filteredProducts = (products || [])
+    .filter((p: any) => selectedGroupId === '' || p.group_id === selectedGroupId)
+    .sort((a: any, b: any) => {
+      const reqA = requiredMap.get(a.id) || 0;
+      const reqB = requiredMap.get(b.id) || 0;
+      if (reqA > 0 && reqB === 0) return -1;
+      if (reqB > 0 && reqA === 0) return 1;
+      return 0;
+    });
 
   const combinedTotal = (todayPurchase as any)?.combined_total;
   const combinedText = combinedTotal
@@ -180,6 +199,7 @@ const PurchaseEntry = () => {
                 <tr>
                   <th>Item</th>
                   <th style={{ textAlign: 'center', width: 80 }}>Unit</th>
+                  <th style={{ textAlign: 'right', width: 100 }}>Required</th>
                   <th style={{ textAlign: 'right', width: 150 }}>Purchased Qty</th>
                   <th style={{ textAlign: 'right', width: 150 }}>Rate ₹ (Optional)</th>
                 </tr>
@@ -189,14 +209,20 @@ const PurchaseEntry = () => {
                   if (!inputRefs.current[product.id]) inputRefs.current[product.id] = { qty: null, rate: null };
                   const line = purchaseLines[product.id];
                   const hasQty = line?.qty && line.qty > 0;
+                  const reqQty = requiredMap.get(product.id) || 0;
+                  const rowStyle = hasQty ? 'var(--vb-green-pale)' : (reqQty > 0 ? '#f0f7ff' : undefined);
+                  
                   return (
-                    <tr key={product.id} style={{ background: hasQty ? 'var(--vb-green-pale)' : undefined }}>
+                    <tr key={product.id} style={{ background: rowStyle }}>
                       <td>
                         <span className="vb-product-name-ta">{product.name_tamil || product.name}</span>
                         {product.name_tamil && <span className="vb-product-name-en">{product.name}</span>}
                       </td>
                       <td style={{ textAlign: 'center' }}>
                         <span className="vb-badge vb-badge-grey">{product.unit_name || 'KG'}</span>
+                      </td>
+                      <td style={{ textAlign: 'right', fontWeight: 800, fontSize: 15, color: 'var(--vb-blue)' }}>
+                        {reqQty > 0 ? reqQty : '—'}
                       </td>
                       <td style={{ textAlign: 'right' }}>
                         <input

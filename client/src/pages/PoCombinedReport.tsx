@@ -5,6 +5,7 @@ import { Download, Calendar } from 'lucide-react';
 
 const PoCombinedReport = () => {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedBranchId, setSelectedBranchId] = useState<number | ''>('');
 
   const { data: report, isLoading, isError, refetch } = useQuery({
     queryKey: ['po_combined', date],
@@ -24,6 +25,17 @@ const PoCombinedReport = () => {
           <p className="vb-page-sub">Combined PO summary across all branches</p>
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <select 
+             className="vb-select"
+             value={selectedBranchId}
+             onChange={e => setSelectedBranchId(e.target.value === '' ? '' : parseInt(e.target.value))}
+             style={{ height: 40 }}
+          >
+             <option value="">All Branches</option>
+             {report?.columns?.map((c: any) => (
+                <option key={c.id} value={c.id}>{c.code}</option>
+             ))}
+          </select>
           <div style={{ position: 'relative' }}>
             <Calendar size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--vb-muted)' }} />
             <input
@@ -59,21 +71,29 @@ const PoCombinedReport = () => {
               <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
                 <tr>
                   <th style={{ position: 'sticky', left: 0, zIndex: 11, background: 'var(--vb-blue)' }}>Item</th>
-                  {report?.columns?.map((col: any) => (
+                  {report?.columns?.filter((c: any) => selectedBranchId === '' || c.id === selectedBranchId).map((col: any) => (
                     <th key={col.id} style={{ textAlign: 'right' }}>{col.code}</th>
                   ))}
                   <th style={{ textAlign: 'right', background: '#174d91' }}>TOTAL</th>
                 </tr>
               </thead>
               <tbody>
-                {!report?.data?.length ? (
-                  <tr>
-                    <td colSpan={10} style={{ textAlign: 'center', padding: '48px 16px', color: 'var(--vb-muted)' }}>
-                      No POs found for this date.
-                    </td>
-                  </tr>
-                ) : (
-                  report.data.map((row: any) => (
+                {(() => {
+                  const displayData = selectedBranchId === '' 
+                    ? report?.data 
+                    : report?.data?.filter((row: any) => (row[`branch_${selectedBranchId}`] || 0) > 0);
+
+                  if (!displayData?.length) {
+                    return (
+                      <tr>
+                        <td colSpan={10} style={{ textAlign: 'center', padding: '48px 16px', color: 'var(--vb-muted)' }}>
+                          No POs found for this date.
+                        </td>
+                      </tr>
+                    );
+                  }
+
+                  return displayData.map((row: any) => (
                     <tr key={row.product_id}>
                       <td className="sticky-col" style={{
                         fontWeight: 700, fontSize: 15,
@@ -83,7 +103,7 @@ const PoCombinedReport = () => {
                       }}>
                         {row.product_name}
                       </td>
-                      {report.columns.map((col: any) => (
+                      {report.columns.filter((c: any) => selectedBranchId === '' || c.id === selectedBranchId).map((col: any) => (
                         <td key={col.id} style={{ textAlign: 'right', fontSize: 15 }}>
                           {row[`branch_${col.id}`] || <span style={{ color: 'var(--vb-muted)' }}>—</span>}
                         </td>
@@ -94,11 +114,11 @@ const PoCombinedReport = () => {
                         background: 'var(--vb-blue-pale)',
                         borderLeft: '2px solid rgba(30,86,160,0.15)',
                       }}>
-                        {row.total}
+                        {selectedBranchId === '' ? row.total : (row[`branch_${selectedBranchId}`] || 0)}
                       </td>
                     </tr>
-                  ))
-                )}
+                  ));
+                })()}
               </tbody>
             </table>
           )}

@@ -51,6 +51,16 @@ const TransferEntry = () => {
     enabled: !!selectedBranchId,
   });
 
+  const { data: branchPO } = useQuery({
+    queryKey: ['po_entry', new Date().toISOString().split('T')[0], selectedBranchId],
+    queryFn: async () => {
+      if (!selectedBranchId) return { lines: [] };
+      const res = await api.get(`/po/entry?branch_id=${selectedBranchId}`);
+      return res.data;
+    },
+    enabled: !!selectedBranchId,
+  });
+
   useEffect(() => {
     if (existingTransfer?.lines?.length) {
       const init: Record<number, number> = {};
@@ -98,9 +108,20 @@ const TransferEntry = () => {
     saveMutation.mutate(lines);
   };
 
-  const filteredProducts = products?.filter((p: any) =>
-    selectedGroupId === '' || p.group_id === selectedGroupId
-  ) || [];
+  const orderedMap = new Map();
+  branchPO?.lines?.forEach((l: any) => {
+    orderedMap.set(l.product_id, l.qty);
+  });
+
+  const filteredProducts = (products || [])
+    .filter((p: any) => selectedGroupId === '' || p.group_id === selectedGroupId)
+    .sort((a: any, b: any) => {
+      const aOrdered = orderedMap.get(a.id) || 0;
+      const bOrdered = orderedMap.get(b.id) || 0;
+      if (aOrdered > 0 && bOrdered === 0) return -1;
+      if (bOrdered > 0 && aOrdered === 0) return 1;
+      return 0;
+    });
 
   const overAllocated = filteredProducts.some((p: any) => {
     const sent = transferLines[p.id] || 0;
@@ -202,18 +223,22 @@ const TransferEntry = () => {
                     <tr>
                       <th>Item</th>
                       <th style={{ textAlign: 'center', width: 80 }}>Unit</th>
-                      <th style={{ textAlign: 'right', width: 130 }}>Available</th>
-                      <th style={{ textAlign: 'right', width: 150 }}>Send Qty</th>
-                      <th style={{ textAlign: 'right', width: 130 }}>Remaining</th>
+                      <th style={{ textAlign: 'right', width: 100 }}>Available</th>
+                      <th style={{ textAlign: 'right', width: 100 }}>Ordered</th>
+                      <th style={{ textAlign: 'right', width: 130 }}>Send Qty</th>
+                      <th style={{ textAlign: 'right', width: 100 }}>Remaining</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredProducts.map((product: any, idx: number) => {
                       const sentQty = transferLines[product.id] || 0;
-                      const remaining = product.stock_balance - sentQty;
-                      const isOver = product.stock_balance > 0 && remaining < 0;
+                      const orderedQty = orderedMap.get(product.id) || 0;
+                      const remaining = orderedQty > 0 ? orderedQty - sentQty : 0 - sentQty;
+                      const isOver = product.stock_balance > 0 && sentQty > product.stock_balance;
+                      const rowStyle = isOver ? 'var(--vb-red-pale)' : (orderedQty > 0 ? '#f0f7ff' : (sentQty > 0 ? 'var(--vb-green-pale)' : undefined));
+                      
                       return (
-                        <tr key={product.id} style={{ background: isOver ? 'var(--vb-red-pale)' : sentQty > 0 ? 'var(--vb-green-pale)' : undefined }}>
+                        <tr key={product.id} style={{ background: rowStyle }}>
                           <td>
                             <span className="vb-product-name-ta">{product.name_tamil || product.name}</span>
                             {product.name_tamil && <span className="vb-product-name-en">{product.name}</span>}
@@ -222,7 +247,10 @@ const TransferEntry = () => {
                             <span className="vb-badge vb-badge-grey">{product.unit_name || 'KG'}</span>
                           </td>
                           <td style={{ textAlign: 'right', fontWeight: 700, fontSize: 15, color: 'var(--vb-muted)' }}>
-                            {product.stock_balance > 0 ? product.stock_balance : '—'}
+                            {product.stock_balance > 0 ? product.stock_balance : '0'}
+                          </td>
+                          <td style={{ textAlign: 'right', fontWeight: 800, fontSize: 15, color: 'var(--vb-blue)' }}>
+                            {orderedQty > 0 ? orderedQty : '—'}
                           </td>
                           <td style={{ textAlign: 'right' }}>
                             <input
@@ -232,22 +260,24 @@ const TransferEntry = () => {
                               onChange={e => handleQtyChange(product.id, e.target.value)}
                               onKeyDown={e => handleKeyDown(e, idx, filteredProducts)}
                               className={`vb-qty-input${isOver ? ' shortage' : ''}`}
-                              style={{ width: 120 }}
+                              style={{ width: 100 }}
                               placeholder="0"
                             />
                           </td>
                           <td style={{ textAlign: 'right' }}>
-                            {product.stock_balance > 0 ? (
-                              <>
-                                <span style={{
-                                  fontSize: 16, fontWeight: 800,
-                                  color: isOver ? 'var(--vb-red-dark)' : 'var(--vb-green-dark)',
-                                }}>
-                                  {remaining}
-                                </span>
-                                {isOver && <div style={{ fontSize: 11, color: 'var(--vb-red)', fontWeight: 600 }}>Over!</div>}
-                              </>
-                            ) : <span style={{ color: 'var(--vb-muted)' }}>—</span>}
+                            {orderedQty > 0 ? (
+                              <span style={{
+                                fontSize: 16, fontWeight: 800,
+                                color: remaining < 0 ? 'var(--vb-red-dark)' : 'var(--vb-green-dark)',
+                              }}>
+                                {remaining}
+                              </span>
+                            ) : (
+                               <span style={{ color: remaining < 0 ? 'var(--vb-red-dark)' : 'var(--vb-muted)' }}>
+                                 {remaining < 0 ? remaining : '—'}
+                               </span>
+                            )}
+                            {isOver && <div style={{ fontSize: 11, color: 'var(--vb-red)', fontWeight: 600 }}>Over stock!</div>}
                           </td>
                         </tr>
                       );

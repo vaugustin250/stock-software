@@ -1,10 +1,17 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
-import { Search, Plus, Pencil } from 'lucide-react';
+import { Search, Plus, Pencil, Trash2 } from 'lucide-react';
+import { Modal } from '../components/Modal';
 
-const DepartmentMaster = () => {
+export default function DepartmentMaster() {
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Modal state
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [formData, setFormData] = useState({ name: '', name_tamil: '' });
 
   const { data: depts, isLoading, isError, refetch } = useQuery({
     queryKey: ['departments'],
@@ -14,19 +21,62 @@ const DepartmentMaster = () => {
     }
   });
 
+  const saveMutation = useMutation({
+    mutationFn: async (data: any) => {
+      if (editingId) {
+        return api.put(`/masters/departments/${editingId}`, data);
+      }
+      return api.post('/masters/departments', data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['departments'] });
+      setIsModalOpen(false);
+    }
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      return api.delete(`/masters/departments/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['departments'] });
+    }
+  });
+
+  const handleOpenModal = (dept?: any) => {
+    if (dept) {
+      setEditingId(dept.id);
+      setFormData({ name: dept.name, name_tamil: dept.name_tamil || '' });
+    } else {
+      setEditingId(null);
+      setFormData({ name: '', name_tamil: '' });
+    }
+    setIsModalOpen(true);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    saveMutation.mutate(formData);
+  };
+
+  const handleDelete = (id: number) => {
+    if (window.confirm('Are you sure you want to delete this department?')) {
+      deleteMutation.mutate(id);
+    }
+  };
+
   const filtered = depts?.filter((d: any) =>
     d.name.toLowerCase().includes(searchTerm.toLowerCase())
   ) || [];
 
   return (
     <div className="vb-page">
-
       <div className="vb-page-header">
         <div>
           <h1 className="vb-page-title">Departments</h1>
           <p className="vb-page-sub">Product department categories — துறைகள்</p>
         </div>
-        <button className="vb-btn vb-btn-primary vb-btn-sm">
+        <button className="vb-btn vb-btn-primary vb-btn-sm" onClick={() => handleOpenModal()}>
           <Plus size={14} /> Add Department
         </button>
       </div>
@@ -51,6 +101,12 @@ const DepartmentMaster = () => {
           <button className="vb-btn vb-btn-sm vb-btn-outline-blue" onClick={() => refetch()}>Retry</button>
         </div>
       )}
+      
+      {deleteMutation.isError && (
+        <div className="vb-error-banner">
+          ⚠ Could not delete department. It might be in use by a product.
+        </div>
+      )}
 
       <div className="vb-card" style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         <div style={{ flex: 1, overflowY: 'auto' }}>
@@ -65,7 +121,7 @@ const DepartmentMaster = () => {
                   <th style={{ width: 60 }}>#</th>
                   <th>Name (English)</th>
                   <th>Name (Tamil)</th>
-                  <th style={{ textAlign: 'center', width: 80 }}>Edit</th>
+                  <th style={{ textAlign: 'center', width: 120 }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -77,9 +133,22 @@ const DepartmentMaster = () => {
                       {dept.name_tamil || '—'}
                     </td>
                     <td style={{ textAlign: 'center' }}>
-                      <button className="vb-btn vb-btn-outline-blue vb-btn-sm" style={{ height: 32, padding: '0 10px', borderRadius: 6 }}>
-                        <Pencil size={13} />
-                      </button>
+                      <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
+                        <button 
+                          className="vb-btn vb-btn-outline-blue vb-btn-sm" 
+                          style={{ height: 32, padding: '0 10px', borderRadius: 6 }}
+                          onClick={() => handleOpenModal(dept)}
+                        >
+                          <Pencil size={13} />
+                        </button>
+                        <button 
+                          className="vb-btn vb-btn-outline-red vb-btn-sm" 
+                          style={{ height: 32, padding: '0 10px', borderRadius: 6 }}
+                          onClick={() => handleDelete(dept.id)}
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -88,8 +157,44 @@ const DepartmentMaster = () => {
           )}
         </div>
       </div>
+
+      <Modal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        title={editingId ? 'Edit Department' : 'Add New Department'}
+      >
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div>
+            <label className="vb-label">Department Name (English)</label>
+            <input 
+              type="text" 
+              className="vb-input" 
+              required
+              value={formData.name}
+              onChange={e => setFormData({...formData, name: e.target.value})}
+            />
+          </div>
+          <div>
+            <label className="vb-label">Department Name (Tamil)</label>
+            <input 
+              type="text" 
+              className="vb-input" 
+              style={{ fontFamily: "'Noto Sans Tamil', sans-serif" }}
+              value={formData.name_tamil}
+              onChange={e => setFormData({...formData, name_tamil: e.target.value})}
+            />
+          </div>
+          
+          <div className="vb-modal-footer" style={{ margin: '20px -20px -20px', padding: '16px 20px' }}>
+            <button type="button" className="vb-btn vb-btn-outline-blue" onClick={() => setIsModalOpen(false)}>
+              Cancel
+            </button>
+            <button type="submit" className="vb-btn vb-btn-primary" disabled={saveMutation.isPending}>
+              {saveMutation.isPending ? 'Saving...' : 'Save Department'}
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
-};
-
-export default DepartmentMaster;
+}

@@ -1,10 +1,20 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { Search, Plus, Upload, Pencil, Trash2 } from 'lucide-react';
+import { Modal } from '../components/Modal';
 
-const ProductMaster = () => {
+export default function ProductMaster() {
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Modal state
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [formData, setFormData] = useState({ 
+    code: '', name: '', name_tamil: '', 
+    group_id: '', department_id: '', default_unit_id: '', is_active: true 
+  });
 
   const { data: products, isLoading, isError, refetch } = useQuery({
     queryKey: ['products'],
@@ -14,13 +24,38 @@ const ProductMaster = () => {
     }
   });
 
+  // Fetch dropdown data
+  const { data: groups } = useQuery({ queryKey: ['groups'], queryFn: async () => (await api.get('/masters/groups')).data });
+  const { data: depts } = useQuery({ queryKey: ['departments'], queryFn: async () => (await api.get('/masters/departments')).data });
+  const { data: units } = useQuery({ queryKey: ['units'], queryFn: async () => (await api.get('/masters/units')).data });
+
+  const saveMutation = useMutation({
+    mutationFn: async (data: any) => {
+      // Convert string IDs to numbers, null if empty
+      const payload = {
+        ...data,
+        group_id: data.group_id ? parseInt(data.group_id) : null,
+        department_id: data.department_id ? parseInt(data.department_id) : null,
+        default_unit_id: data.default_unit_id ? parseInt(data.default_unit_id) : null,
+      };
+      if (editingId) {
+        return api.put(`/masters/products/${editingId}`, payload);
+      }
+      return api.post('/masters/products', payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      setIsModalOpen(false);
+    }
+  });
+
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const formData = new FormData();
-    formData.append('file', file);
+    const uploadData = new FormData();
+    uploadData.append('file', file);
     try {
-      await api.post('/masters/products/import', formData, {
+      await api.post('/masters/products/import', uploadData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       refetch();
@@ -39,6 +74,30 @@ const ProductMaster = () => {
     }
   };
 
+  const handleOpenModal = (product?: any) => {
+    if (product) {
+      setEditingId(product.id);
+      setFormData({ 
+        code: product.code, 
+        name: product.name, 
+        name_tamil: product.name_tamil || '',
+        group_id: product.group_id?.toString() || '',
+        department_id: product.department_id?.toString() || '',
+        default_unit_id: product.default_unit_id?.toString() || '',
+        is_active: product.is_active 
+      });
+    } else {
+      setEditingId(null);
+      setFormData({ code: '', name: '', name_tamil: '', group_id: '', department_id: '', default_unit_id: '', is_active: true });
+    }
+    setIsModalOpen(true);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    saveMutation.mutate(formData);
+  };
+
   const filtered = products?.filter((p: any) =>
     p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     p.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -47,8 +106,6 @@ const ProductMaster = () => {
 
   return (
     <div className="vb-page">
-
-      {/* Header */}
       <div className="vb-page-header">
         <div>
           <h1 className="vb-page-title">Products</h1>
@@ -59,13 +116,12 @@ const ProductMaster = () => {
             <Upload size={14} /> Import Excel
             <input type="file" style={{ display: 'none' }} accept=".xlsx,.xls" onChange={handleImport} />
           </label>
-          <button className="vb-btn vb-btn-primary vb-btn-sm">
+          <button className="vb-btn vb-btn-primary vb-btn-sm" onClick={() => handleOpenModal()}>
             <Plus size={14} /> Add New
           </button>
         </div>
       </div>
 
-      {/* Search */}
       <div className="vb-card" style={{ padding: '14px 20px' }}>
         <div style={{ position: 'relative', maxWidth: 400 }}>
           <Search size={16} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--vb-muted)' }} />
@@ -87,7 +143,6 @@ const ProductMaster = () => {
         </div>
       )}
 
-      {/* Table */}
       <div className="vb-card" style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         <div style={{ flex: 1, overflowY: 'auto' }}>
           {isLoading ? (
@@ -101,16 +156,14 @@ const ProductMaster = () => {
                   <th style={{ width: 80 }}>Code</th>
                   <th>English Name</th>
                   <th>Tamil Name</th>
-                  <th>Group</th>
-                  <th>Dept.</th>
                   <th style={{ textAlign: 'center', width: 90 }}>Status</th>
-                  <th style={{ textAlign: 'center', width: 100 }}>Actions</th>
+                  <th style={{ textAlign: 'center', width: 120 }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={7} style={{ textAlign: 'center', padding: '48px 16px', color: 'var(--vb-muted)' }}>
+                    <td colSpan={5} style={{ textAlign: 'center', padding: '48px 16px', color: 'var(--vb-muted)' }}>
                       No products found.
                     </td>
                   </tr>
@@ -124,10 +177,6 @@ const ProductMaster = () => {
                       <td style={{ fontFamily: "'Noto Sans Tamil', sans-serif", fontWeight: 600, color: 'var(--vb-blue)' }}>
                         {product.name_tamil || '—'}
                       </td>
-                      <td>
-                        <span className="vb-badge vb-badge-blue">{product.group_name || '—'}</span>
-                      </td>
-                      <td style={{ color: 'var(--vb-muted)', fontSize: 14 }}>{product.department || '—'}</td>
                       <td style={{ textAlign: 'center' }}>
                         <span className={`vb-badge ${product.is_active ? 'vb-badge-green' : 'vb-badge-grey'}`}>
                           {product.is_active ? '● Active' : '● Inactive'}
@@ -139,6 +188,7 @@ const ProductMaster = () => {
                             className="vb-btn vb-btn-outline-blue vb-btn-sm"
                             style={{ height: 32, padding: '0 10px', borderRadius: 6 }}
                             title="Edit"
+                            onClick={() => handleOpenModal(product)}
                           >
                             <Pencil size={13} />
                           </button>
@@ -159,20 +209,123 @@ const ProductMaster = () => {
             </table>
           )}
         </div>
-
-        {/* Footer count */}
-        <div style={{
-          padding: '10px 20px',
-          borderTop: '1px solid var(--vb-border)',
-          fontSize: 13,
-          color: 'var(--vb-muted)',
-          fontWeight: 600,
-        }}>
+        <div style={{ padding: '10px 20px', borderTop: '1px solid var(--vb-border)', fontSize: 13, color: 'var(--vb-muted)', fontWeight: 600 }}>
           {filtered.length} product{filtered.length !== 1 ? 's' : ''} shown
         </div>
       </div>
+
+      <Modal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        title={editingId ? 'Edit Product' : 'Add New Product'}
+        width="600px"
+      >
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div>
+              <label className="vb-label">Product Code</label>
+              <input 
+                type="text" 
+                className="vb-input" 
+                required
+                value={formData.code}
+                onChange={e => setFormData({...formData, code: e.target.value})}
+              />
+            </div>
+            <div>
+              <label className="vb-label">Unit</label>
+              <select 
+                className="vb-input" 
+                required
+                value={formData.default_unit_id}
+                onChange={e => setFormData({...formData, default_unit_id: e.target.value})}
+              >
+                <option value="">Select Unit...</option>
+                {units?.map((u: any) => (
+                  <option key={u.id} value={u.id}>{u.name} ({u.code})</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div>
+              <label className="vb-label">English Name</label>
+              <input 
+                type="text" 
+                className="vb-input" 
+                required
+                value={formData.name}
+                onChange={e => setFormData({...formData, name: e.target.value})}
+              />
+            </div>
+            <div>
+              <label className="vb-label">Tamil Name</label>
+              <input 
+                type="text" 
+                className="vb-input" 
+                style={{ fontFamily: "'Noto Sans Tamil', sans-serif" }}
+                value={formData.name_tamil}
+                onChange={e => setFormData({...formData, name_tamil: e.target.value})}
+              />
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div>
+              <label className="vb-label">Group</label>
+              <select 
+                className="vb-input" 
+                value={formData.group_id}
+                onChange={e => setFormData({...formData, group_id: e.target.value})}
+              >
+                <option value="">Select Group...</option>
+                {groups?.map((g: any) => (
+                  <option key={g.id} value={g.id}>{g.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="vb-label">Department</label>
+              <select 
+                className="vb-input" 
+                value={formData.department_id}
+                onChange={e => setFormData({...formData, department_id: e.target.value})}
+              >
+                <option value="">Select Department...</option>
+                {depts?.map((d: any) => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontWeight: 600 }}>
+            <input 
+              type="checkbox" 
+              checked={formData.is_active}
+              onChange={e => setFormData({...formData, is_active: e.target.checked})}
+              style={{ width: 18, height: 18 }}
+            />
+            Active Product
+          </label>
+          
+          {saveMutation.isError && (
+            <div className="vb-error-banner" style={{ marginTop: 0 }}>
+              ⚠ Could not save product. Please try again.
+            </div>
+          )}
+          
+          <div className="vb-modal-footer" style={{ margin: '20px -20px -20px', padding: '16px 20px' }}>
+            <button type="button" className="vb-btn vb-btn-outline-blue" onClick={() => setIsModalOpen(false)}>
+              Cancel
+            </button>
+            <button type="submit" className="vb-btn vb-btn-primary" disabled={saveMutation.isPending}>
+              {saveMutation.isPending ? 'Saving...' : 'Save Product'}
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
-};
-
-export default ProductMaster;
+}

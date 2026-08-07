@@ -6,7 +6,15 @@ const multer = require('multer');
 const xlsx = require('xlsx');
 const upload = multer({ dest: 'uploads/' });
 
-router.use(authenticate); // All master routes require auth
+router.use(authenticate);
+
+const handleDbError = (err, res) => {
+  if (err.code === '23505') return res.status(400).json({ error: 'This record already exists. Please use a unique value.' });
+  if (err.code === '22001') return res.status(400).json({ error: 'An input value is too long. Please shorten it.' });
+  if (err.code === '23503') return res.status(400).json({ error: 'Cannot delete this record because it is actively used in transactions.' });
+  return res.status(400).json({ error: 'An unexpected database error occurred. Please verify your inputs.' });
+};
+ // All master routes require auth
 
 const createCrudRouter = (tableName) => {
   const r = express.Router();
@@ -16,7 +24,7 @@ const createCrudRouter = (tableName) => {
       const data = await db(tableName).select('*').orderBy('id');
       res.json(data);
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      return handleDbError(err, res);
     }
   });
 
@@ -25,7 +33,7 @@ const createCrudRouter = (tableName) => {
       const [inserted] = await db(tableName).insert(req.body).returning('*');
       res.json(inserted);
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      return handleDbError(err, res);
     }
   });
 
@@ -35,18 +43,151 @@ const createCrudRouter = (tableName) => {
       const [updated] = await db(tableName).where({ id }).update(req.body).returning('*');
       res.json(updated);
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      return handleDbError(err, res);
+    }
+  });
+
+  r.delete('/:id', requireRole(['ADMIN', 'WAREHOUSE']), async (req, res) => {
+    try {
+      const { id } = req.params;
+      await db(tableName).where({ id }).delete();
+      res.json({ success: true });
+    } catch (err) {
+      // e.g. Foreign key constraint violation
+      return handleDbError(err, res);
     }
   });
 
   return r;
 };
 
-// Expose basic CRUD for masters
-router.use('/branches', createCrudRouter('branch'));
 router.use('/groups', createCrudRouter('product_group'));
 router.use('/departments', createCrudRouter('department'));
 router.use('/units', createCrudRouter('unit'));
+
+// Custom CRUD for Godowns
+router.get('/godowns', requireRole(['ADMIN', 'WAREHOUSE']), async (req, res) => {
+  try {
+    let query = db('branch').where({ type: 'GODOWN' }).orderBy('id');
+    if (req.user.role === 'WAREHOUSE' && req.user.branch_id) {
+       query = query.where({ id: req.user.branch_id });
+    }
+    const data = await query;
+    res.json(data);
+  } catch (err) {
+    return handleDbError(err, res);
+  }
+});
+
+router.post('/godowns', requireRole(['ADMIN']), async (req, res) => {
+  try {
+    const [inserted] = await db('branch').insert({ ...req.body, type: 'GODOWN' }).returning('*');
+    res.json(inserted);
+  } catch (err) {
+    return handleDbError(err, res);
+  }
+});
+
+router.put('/godowns/:id', requireRole(['ADMIN']), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [updated] = await db('branch').where({ id, type: 'GODOWN' }).update(req.body).returning('*');
+    res.json(updated);
+  } catch (err) {
+    return handleDbError(err, res);
+  }
+});
+
+router.delete('/godowns/:id', requireRole(['ADMIN']), async (req, res) => {
+  try {
+    const { id } = req.params;
+    await db('branch').where({ id, type: 'GODOWN' }).delete();
+    res.json({ success: true });
+  } catch (err) {
+    return handleDbError(err, res);
+  }
+});
+
+// Custom CRUD for Branches under a Godown
+router.get('/godowns/:godownId/branches', requireRole(['ADMIN', 'WAREHOUSE']), async (req, res) => {
+  try {
+    const { godownId } = req.params;
+    
+    // WAREHOUSE users can only fetch their own godown's branches
+    if (req.user.role === 'WAREHOUSE' && req.user.branch_id != godownId) {
+       return res.status(403).json({ error: 'Forbidden' });
+    }
+    
+    const data = await db('branch').where({ type: 'BRANCH', godown_id: godownId }).orderBy('id');
+    res.json(data);
+  } catch (err) {
+    return handleDbError(err, res);
+  }
+});
+
+router.post('/godowns/:godownId/branches', requireRole(['ADMIN', 'WAREHOUSE']), async (req, res) => {
+  try {
+    const { godownId } = req.params;
+    
+    if (req.user.role === 'WAREHOUSE' && req.user.branch_id != godownId) {
+       return res.status(403).json({ error: 'Forbidden' });
+    }
+    
+    const [inserted] = await db('branch')
+      .insert({ ...req.body, type: 'BRANCH', godown_id: godownId })
+      .returning('*');
+    res.json(inserted);
+  } catch (err) {
+    return handleDbError(err, res);
+  }
+});
+
+router.put('/branches/:id', requireRole(['ADMIN', 'WAREHOUSE']), async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    if (req.user.role === 'WAREHOUSE' && req.user.branch_id) {
+       // Need to verify this branch belongs to the user's godown
+       const branch = await db('branch').where({ id }).first();
+       if (!branch || branch.godown_id != req.user.branch_id) {
+           return res.status(403).json({ error: 'Forbidden' });
+       }
+    }
+    
+    const [updated] = await db('branch').where({ id, type: 'BRANCH' }).update(req.body).returning('*');
+    res.json(updated);
+  } catch (err) {
+    return handleDbError(err, res);
+  }
+});
+
+router.delete('/branches/:id', requireRole(['ADMIN', 'WAREHOUSE']), async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    if (req.user.role === 'WAREHOUSE' && req.user.branch_id) {
+       const branch = await db('branch').where({ id }).first();
+       if (!branch || branch.godown_id != req.user.branch_id) {
+           return res.status(403).json({ error: 'Forbidden' });
+       }
+    }
+    
+    await db('branch').where({ id, type: 'BRANCH' }).delete();
+    res.json({ success: true });
+  } catch (err) {
+    return handleDbError(err, res);
+  }
+});
+
+// Also provide a route to fetch all branches for users assignment (ADMIN only)
+router.get('/branches', requireRole(['ADMIN']), async (req, res) => {
+  try {
+    const data = await db('branch').select('*').orderBy('id');
+    res.json(data);
+  } catch (err) {
+    return handleDbError(err, res);
+  }
+});
 router.use('/products', createCrudRouter('product'));
 
 // Special handlers for User (password hashing)
@@ -55,7 +196,7 @@ router.get('/users', requireRole(['ADMIN']), async (req, res) => {
     const users = await db('app_user').select('id', 'username', 'role', 'branch_id', 'is_active');
     res.json(users);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    return handleDbError(err, res);
   }
 });
 
@@ -67,7 +208,34 @@ router.post('/users', requireRole(['ADMIN']), async (req, res) => {
     const [user] = await db('app_user').insert({ username, password_hash, role, branch_id }).returning(['id', 'username', 'role', 'branch_id']);
     res.json(user);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    return handleDbError(err, res);
+  }
+});
+
+router.put('/users/:id', requireRole(['ADMIN']), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { username, password, role, branch_id } = req.body;
+    const updateData = { username, role, branch_id };
+    
+    if (password) {
+      updateData.password_hash = await bcrypt.hash(password, 10);
+    }
+    
+    const [user] = await db('app_user').where({ id }).update(updateData).returning(['id', 'username', 'role', 'branch_id']);
+    res.json(user);
+  } catch (err) {
+    return handleDbError(err, res);
+  }
+});
+
+router.delete('/users/:id', requireRole(['ADMIN']), async (req, res) => {
+  try {
+    const { id } = req.params;
+    await db('app_user').where({ id }).delete();
+    res.json({ success: true });
+  } catch (err) {
+    return handleDbError(err, res);
   }
 });
 
@@ -89,7 +257,7 @@ router.post('/products/import', requireRole(['ADMIN', 'WAREHOUSE']), upload.sing
 
     res.json({ preview: data });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    return handleDbError(err, res);
   }
 });
 

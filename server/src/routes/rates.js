@@ -17,7 +17,7 @@ router.get('/', requireRole(['ADMIN', 'WAREHOUSE', 'BRANCH']), async (req, res) 
     let query = `
       SELECT DISTINCT ON (product_id) *
       FROM rate_change
-      ORDER BY product_id, changed_at DESC
+      ORDER BY product_id, created_at DESC
     `;
     
     // If branch specific rates are needed we could filter by branch, but we assume global rates for this chain unless specified
@@ -90,7 +90,7 @@ router.get('/history/:product_id', requireRole(['ADMIN', 'WAREHOUSE', 'BRANCH'])
       .join('app_user', 'rate_change.changed_by', 'app_user.id')
       .select('rate_change.*', 'app_user.username as changed_by_name')
       .where({ product_id })
-      .orderBy('changed_at', 'desc');
+      .orderBy('created_at', 'desc');
       
     res.json(history);
   } catch (err) {

@@ -154,7 +154,7 @@ const RateMaster = () => {
                         )}
                       </td>
                       <td style={{ textAlign: 'right', fontSize: 18, fontWeight: 800 }}>
-                        ₹{product.current_rate.toFixed(2)}
+                        ₹{Number(product.current_rate || 0).toFixed(2)}
                       </td>
                       <td style={{ textAlign: 'right' }}>
                         <input
@@ -166,7 +166,7 @@ const RateMaster = () => {
                           onChange={e => handleRateChange(product.id, e.target.value)}
                           className="vb-qty-input"
                           style={{ width: 130 }}
-                          placeholder={product.current_rate.toFixed(2)}
+                          placeholder={Number(product.current_rate || 0).toFixed(2)}
                         />
                       </td>
                       <td style={{ textAlign: 'center' }}>

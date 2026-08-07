@@ -1,26 +1,16 @@
 import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
+import { api } from '../lib/api';
 import { Download } from 'lucide-react';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] as const;
 const DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
 
 const RateWeeklyReport = () => {
-  const { data: report, isLoading } = useQuery({
+  const { data: report, isLoading, isError, refetch } = useQuery({
     queryKey: ['rate_weekly'],
     queryFn: async () => {
-      try {
-        const res = await axios.get('http://localhost:3000/rates/weekly', {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-        });
-        return res.data;
-      } catch {
-        return [
-          { product_name: 'Tomato', mon: 92, tue: 89, wed: 89, thu: 79, fri: 75, sat: 79 },
-          { product_name: 'Onion', mon: 40, tue: 42, wed: 42, thu: 42, fri: 45, sat: 45 },
-          { product_name: 'Potato', mon: 38, tue: 38, wed: 36, thu: 36, fri: 38, sat: 40 },
-        ];
-      }
+      const res = await api.get('/rates/weekly');
+      return res.data;
     }
   });
 
@@ -44,6 +34,13 @@ const RateWeeklyReport = () => {
           <Download size={14} /> Excel
         </button>
       </div>
+
+      {isError && (
+        <div className="vb-error-banner">
+          ⚠ Could not load weekly rates.{' '}
+          <button className="vb-btn vb-btn-sm vb-btn-outline-blue" onClick={() => refetch()}>Retry</button>
+        </div>
+      )}
 
       {/* Table */}
       <div className="vb-card" style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>

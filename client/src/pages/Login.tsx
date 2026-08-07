@@ -1,7 +1,6 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
 import { Eye, EyeOff } from 'lucide-react';
+import { api } from '../lib/api';
 
 const Login = () => {
   const [username, setUsername] = useState('');
@@ -10,7 +9,6 @@ const Login = () => {
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
   const [lang, setLang] = useState<'en' | 'ta'>('en');
-  const navigate = useNavigate();
 
   const t = {
     en: {
@@ -38,28 +36,8 @@ const Login = () => {
     setError('');
     setLoading(true);
 
-    // Demo bypass
-    if (username === 'admin' && password === 'admin') {
-      localStorage.setItem('token', 'fake-jwt-token');
-      localStorage.setItem('user', JSON.stringify({ role: 'ADMIN', username: 'Admin' }));
-      window.location.href = '/';
-      return;
-    }
-    if (username === 'branch' && password === 'branch') {
-      localStorage.setItem('token', 'fake-jwt-token');
-      localStorage.setItem('user', JSON.stringify({ role: 'BRANCH', username: 'RPC1', branch_id: 2 }));
-      window.location.href = '/';
-      return;
-    }
-    if (username === 'warehouse' && password === 'warehouse') {
-      localStorage.setItem('token', 'fake-jwt-token');
-      localStorage.setItem('user', JSON.stringify({ role: 'WAREHOUSE', username: 'Godown' }));
-      window.location.href = '/';
-      return;
-    }
-
     try {
-      const res = await axios.post('http://localhost:3000/auth/login', { username, password });
+      const res = await api.post('/auth/login', { username, password });
       localStorage.setItem('token', res.data.token);
       localStorage.setItem('user', JSON.stringify(res.data.user));
       window.location.href = '/';
@@ -257,20 +235,6 @@ const Login = () => {
             </button>
           </div>
         </form>
-
-        {/* Demo hint */}
-        <div style={{
-          marginTop: 24,
-          padding: '10px 14px',
-          background: '#F7F9FC',
-          borderRadius: 8,
-          fontSize: 12,
-          color: '#6B7280',
-          textAlign: 'center',
-          lineHeight: 1.6,
-        }}>
-          Demo: <strong>admin / admin</strong> · <strong>branch / branch</strong> · <strong>warehouse / warehouse</strong>
-        </div>
       </div>
     </div>
   );

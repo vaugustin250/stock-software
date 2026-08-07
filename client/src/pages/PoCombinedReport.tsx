@@ -1,29 +1,16 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
+import { api } from '../lib/api';
 import { Download, Calendar } from 'lucide-react';
 
 const PoCombinedReport = () => {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
 
-  const { data: report, isLoading } = useQuery({
+  const { data: report, isLoading, isError, refetch } = useQuery({
     queryKey: ['po_combined', date],
     queryFn: async () => {
-      try {
-        const res = await axios.get(`http://localhost:3000/po/combined-report?date=${date}`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-        });
-        return res.data;
-      } catch {
-        return {
-          columns: [{ id: 2, code: 'RPC1' }, { id: 3, code: 'RPC2' }, { id: 4, code: 'RPC3' }],
-          data: [
-            { product_id: 101, product_name: 'Tomato', branch_2: 100, branch_3: 150, branch_4: 60, total: 310 },
-            { product_id: 102, product_name: 'Onion', branch_2: 50, branch_3: 60, branch_4: 30, total: 140 },
-            { product_id: 103, product_name: 'Potato', branch_2: 20, branch_3: 40, branch_4: 10, total: 70 },
-          ]
-        };
-      }
+      const res = await api.get(`/po/combined-report?date=${date}`);
+      return res.data;
     }
   });
 
@@ -52,6 +39,13 @@ const PoCombinedReport = () => {
           </button>
         </div>
       </div>
+
+      {isError && (
+        <div className="vb-error-banner">
+          ⚠ Could not load combined report.{' '}
+          <button className="vb-btn vb-btn-sm vb-btn-outline-blue" onClick={() => refetch()}>Retry</button>
+        </div>
+      )}
 
       {/* Table */}
       <div className="vb-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>

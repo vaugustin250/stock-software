@@ -1,27 +1,16 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
+import { api } from '../lib/api';
 import { Download, Calendar } from 'lucide-react';
 
 const GodownStockLedger = () => {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
 
-  const { data: report, isLoading } = useQuery({
+  const { data: report, isLoading, isError, refetch } = useQuery({
     queryKey: ['stock_ledger', date],
     queryFn: async () => {
-      try {
-        const res = await axios.get(`http://localhost:3000/reports/stock-ledger?date=${date}`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-        });
-        return res.data;
-      } catch {
-        return [
-          { product_code: 'P001', product_name: 'Tomato', purchased: 500, transferred: 370, balance: 130 },
-          { product_code: 'P002', product_name: 'Onion', purchased: 200, transferred: 150, balance: 50 },
-          { product_code: 'P003', product_name: 'Potato', purchased: 80, transferred: 80, balance: 0 },
-          { product_code: 'P004', product_name: 'Carrot', purchased: 60, transferred: 70, balance: -10 },
-        ];
-      }
+      const res = await api.get(`/reports/stock-ledger?date=${date}`);
+      return res.data;
     }
   });
 
@@ -53,12 +42,17 @@ const GodownStockLedger = () => {
         </div>
       </div>
 
+      {isError && (
+        <div className="vb-error-banner">
+          ⚠ Could not load stock ledger.{' '}
+          <button className="vb-btn vb-btn-sm vb-btn-outline-blue" onClick={() => refetch()}>Retry</button>
+        </div>
+      )}
+
       {/* Summary chips */}
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
         <div className="vb-card" style={{ padding: '14px 20px', flex: '1 1 140px', textAlign: 'center' }}>
-          <div style={{ fontSize: 24, fontWeight: 900, color: 'var(--vb-blue)' }}>
-            {rows.length}
-          </div>
+          <div style={{ fontSize: 24, fontWeight: 900, color: 'var(--vb-blue)' }}>{rows.length}</div>
           <div style={{ fontSize: 12, color: 'var(--vb-muted)', fontWeight: 600, marginTop: 2 }}>Products</div>
         </div>
         <div className="vb-card" style={{ padding: '14px 20px', flex: '1 1 140px', textAlign: 'center' }}>

@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import axios from 'axios';
-import { io } from 'socket.io-client';
+import { api, createSocket } from '../lib/api';
 import { Bell } from 'lucide-react';
 
 function useToast() {
@@ -21,49 +20,28 @@ const RateView = () => {
 
   const user = JSON.parse(localStorage.getItem('user') || '{}');
 
-  const { data: groups } = useQuery({
+  const { data: groups, isError: groupsError } = useQuery({
     queryKey: ['groups'],
     queryFn: async () => {
-      try {
-        const res = await axios.get('http://localhost:3000/masters/groups', {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-        });
-        return res.data;
-      } catch {
-        return [{ id: 1, name: 'Special Vegetables' }, { id: 2, name: 'Fruits' }];
-      }
+      const res = await api.get('/masters/groups');
+      return res.data;
     }
   });
 
-  const { data: ratesData, isLoading } = useQuery({
+  const { data: ratesData, isLoading, isError: ratesError, refetch } = useQuery({
     queryKey: ['rates_view'],
     queryFn: async () => {
-      try {
-        const prodRes = await axios.get('http://localhost:3000/masters/products', {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-        });
-        const ratesRes = await axios.get('http://localhost:3000/rates', {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-        });
-        const ratesDict: Record<number, any> = {};
-        ratesRes.data.rates.forEach((r: any) => ratesDict[r.product_id] = r);
-        const products = prodRes.data.map((p: any) => ({
-          ...p,
-          current_rate: ratesDict[p.id]?.rate || 0,
-          prev_rate: ratesDict[p.id]?.prev_rate || null,
-          rate_change_id: ratesDict[p.id]?.id,
-        }));
-        return { products, unacknowledged: ratesRes.data.unacknowledged || [] };
-      } catch {
-        return {
-          products: [
-            { id: 101, group_id: 1, name: 'Tomato', name_tamil: 'தக்காளி', current_rate: 79, prev_rate: 89, rate_change_id: 10 },
-            { id: 102, group_id: 1, name: 'Onion', name_tamil: 'வெங்காயம்', current_rate: 42, prev_rate: 42, rate_change_id: 11 },
-            { id: 103, group_id: 1, name: 'Potato', name_tamil: 'உருளை', current_rate: 36, prev_rate: 40, rate_change_id: 12 },
-          ],
-          unacknowledged: [10, 12],
-        };
-      }
+      const prodRes = await api.get('/masters/products');
+      const ratesRes = await api.get('/rates');
+      const ratesDict: Record<number, any> = {};
+      ratesRes.data.rates.forEach((r: any) => ratesDict[r.product_id] = r);
+      const products = prodRes.data.map((p: any) => ({
+        ...p,
+        current_rate: ratesDict[p.id]?.rate || 0,
+        prev_rate: ratesDict[p.id]?.prev_rate || null,
+        rate_change_id: ratesDict[p.id]?.id,
+      }));
+      return { products, unacknowledged: ratesRes.data.unacknowledged || [] };
     },
   });
 
@@ -80,7 +58,7 @@ const RateView = () => {
 
   useEffect(() => {
     try {
-      const socket = io('http://localhost:3000');
+      const socket = createSocket();
       socket.on('rate_changed', (d: any) => {
         if (!d.branch_id || d.branch_id === user.branch_id || d.branch_id === 1) {
           queryClient.setQueryData(['rates_view'], (old: any) => {
@@ -107,9 +85,7 @@ const RateView = () => {
 
   const ackMutation = useMutation({
     mutationFn: async (rate_change_id: number) => {
-      await axios.post('http://localhost:3000/rates/ack', { rate_change_id }, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      });
+      await api.post('/rates/ack', { rate_change_id });
     },
     onSuccess: (_, rate_change_id) => {
       const product = ratesData?.products.find((p: any) => p.rate_change_id === rate_change_id);
@@ -156,6 +132,13 @@ const RateView = () => {
           )}
         </div>
       </div>
+
+      {(groupsError || ratesError) && (
+        <div className="vb-error-banner">
+          ⚠ Could not load rates.{' '}
+          <button className="vb-btn vb-btn-sm vb-btn-outline-blue" onClick={() => refetch()}>Retry</button>
+        </div>
+      )}
 
       {unreadCount > 0 && (
         <div className="vb-info-banner">

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import axios from 'axios';
+import { api } from '../lib/api';
 import { Truck } from 'lucide-react';
 
 function useToast() {
@@ -21,41 +21,23 @@ const TransferEntry = () => {
   const queryClient = useQueryClient();
   const { toast, show: showToast } = useToast();
 
-  const { data: branches } = useQuery({
+  const { data: branches, isError: branchesError } = useQuery({
     queryKey: ['branches_transfer'],
     queryFn: async () => {
-      try {
-        const res = await axios.get('http://localhost:3000/masters/branches', {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-        });
-        return res.data.filter((b: any) => b.type === 'BRANCH');
-      } catch {
-        return [
-          { id: 2, name: 'RPC Branch 1', code: 'RPC1' },
-          { id: 3, name: 'RPC Branch 2', code: 'RPC2' },
-          { id: 4, name: 'RPC Branch 3', code: 'RPC3' },
-        ];
-      }
+      const res = await api.get('/masters/branches');
+      return res.data.filter((b: any) => b.type === 'BRANCH');
     }
   });
 
   const { data: groups } = useQuery({ queryKey: ['groups'] as const });
 
-  const { data: products, isLoading } = useQuery({
+  const { data: products, isLoading, isError: productsError } = useQuery({
     queryKey: ['products_with_stock'],
     queryFn: async () => {
-      try {
-        const res = await axios.get('http://localhost:3000/masters/products', {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-        });
-        return res.data.map((p: any) => ({ ...p, stock_balance: Math.floor(Math.random() * 150) + 50 }));
-      } catch {
-        return [
-          { id: 101, group_id: 1, name: 'Tomato', name_tamil: 'தக்காளி', unit_name: 'KG', stock_balance: 480 },
-          { id: 102, group_id: 1, name: 'Onion', name_tamil: 'வெங்காயம்', unit_name: 'KG', stock_balance: 200 },
-          { id: 103, group_id: 1, name: 'Potato', name_tamil: 'உருளை', unit_name: 'Bag', stock_balance: 80 },
-        ];
-      }
+      const res = await api.get('/masters/products');
+      // stock_balance will come from a real stock endpoint in the future;
+      // for now show 0 until the stock-ledger API is wired to this view
+      return res.data.map((p: any) => ({ ...p, stock_balance: p.stock_balance ?? 0 }));
     }
   });
 
@@ -63,14 +45,8 @@ const TransferEntry = () => {
     queryKey: ['transfer_entry', new Date().toISOString().split('T')[0], selectedBranchId],
     queryFn: async () => {
       if (!selectedBranchId) return { lines: [] };
-      try {
-        const res = await axios.get(`http://localhost:3000/transfer/entry?branch_id=${selectedBranchId}`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-        });
-        return res.data;
-      } catch {
-        return { lines: [] };
-      }
+      const res = await api.get(`/transfer/entry?branch_id=${selectedBranchId}`);
+      return res.data;
     },
     enabled: !!selectedBranchId,
   });
@@ -87,9 +63,7 @@ const TransferEntry = () => {
 
   const saveMutation = useMutation({
     mutationFn: async (lines: any[]) => {
-      await axios.post('http://localhost:3000/transfer/entry', { branch_id: selectedBranchId, lines }, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      });
+      await api.post('/transfer/entry', { branch_id: selectedBranchId, lines });
     },
     onSuccess: () => {
       setShowSuccess(true);
@@ -128,10 +102,9 @@ const TransferEntry = () => {
     selectedGroupId === '' || p.group_id === selectedGroupId
   ) || [];
 
-  // Compute total remaining per product
   const overAllocated = filteredProducts.some((p: any) => {
     const sent = transferLines[p.id] || 0;
-    return sent > p.stock_balance;
+    return p.stock_balance > 0 && sent > p.stock_balance;
   });
 
   const selectedBranch = branches?.find((b: any) => b.id === selectedBranchId);
@@ -162,6 +135,12 @@ const TransferEntry = () => {
           <p className="vb-page-sub">Dispatch from Godown</p>
         </div>
       </div>
+
+      {(branchesError || productsError) && (
+        <div className="vb-error-banner">
+          ⚠ Could not load branches or products. Please check your connection and refresh.
+        </div>
+      )}
 
       {/* Branch + Group pickers */}
       <div className="vb-card" style={{ padding: '16px 20px' }}>
@@ -232,7 +211,7 @@ const TransferEntry = () => {
                     {filteredProducts.map((product: any, idx: number) => {
                       const sentQty = transferLines[product.id] || 0;
                       const remaining = product.stock_balance - sentQty;
-                      const isOver = remaining < 0;
+                      const isOver = product.stock_balance > 0 && remaining < 0;
                       return (
                         <tr key={product.id} style={{ background: isOver ? 'var(--vb-red-pale)' : sentQty > 0 ? 'var(--vb-green-pale)' : undefined }}>
                           <td>
@@ -243,7 +222,7 @@ const TransferEntry = () => {
                             <span className="vb-badge vb-badge-grey">{product.unit_name || 'KG'}</span>
                           </td>
                           <td style={{ textAlign: 'right', fontWeight: 700, fontSize: 15, color: 'var(--vb-muted)' }}>
-                            {product.stock_balance}
+                            {product.stock_balance > 0 ? product.stock_balance : '—'}
                           </td>
                           <td style={{ textAlign: 'right' }}>
                             <input
@@ -258,13 +237,17 @@ const TransferEntry = () => {
                             />
                           </td>
                           <td style={{ textAlign: 'right' }}>
-                            <span style={{
-                              fontSize: 16, fontWeight: 800,
-                              color: isOver ? 'var(--vb-red-dark)' : 'var(--vb-green-dark)',
-                            }}>
-                              {remaining}
-                            </span>
-                            {isOver && <div style={{ fontSize: 11, color: 'var(--vb-red)', fontWeight: 600 }}>Over!</div>}
+                            {product.stock_balance > 0 ? (
+                              <>
+                                <span style={{
+                                  fontSize: 16, fontWeight: 800,
+                                  color: isOver ? 'var(--vb-red-dark)' : 'var(--vb-green-dark)',
+                                }}>
+                                  {remaining}
+                                </span>
+                                {isOver && <div style={{ fontSize: 11, color: 'var(--vb-red)', fontWeight: 600 }}>Over!</div>}
+                              </>
+                            ) : <span style={{ color: 'var(--vb-muted)' }}>—</span>}
                           </td>
                         </tr>
                       );

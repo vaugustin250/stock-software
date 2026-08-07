@@ -1,40 +1,41 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
+import { api } from '../lib/api';
 import { Search, Plus, Upload, Pencil, Trash2 } from 'lucide-react';
 
 const ProductMaster = () => {
   const [searchTerm, setSearchTerm] = useState('');
 
-  const { data: products, isLoading } = useQuery({
+  const { data: products, isLoading, isError, refetch } = useQuery({
     queryKey: ['products'],
     queryFn: async () => {
-      try {
-        const res = await axios.get('http://localhost:3000/masters/products', {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-        });
-        return res.data;
-      } catch {
-        return [
-          { id: 1, code: 'V001', name: 'Tomato', name_tamil: 'தக்காளி', group_name: 'Spl. Veg', department: 'Vegetable', is_active: true },
-          { id: 2, code: 'V002', name: 'Onion', name_tamil: 'வெங்காயம்', group_name: 'Spl. Veg', department: 'Vegetable', is_active: true },
-          { id: 3, code: 'V003', name: 'Potato', name_tamil: 'உருளை', group_name: 'Root Veg', department: 'Vegetable', is_active: true },
-          { id: 4, code: 'F001', name: 'Apple', name_tamil: 'ஆப்பிள்', group_name: 'Fruits', department: 'Fruit', is_active: false },
-        ];
-      }
+      const res = await api.get('/masters/products');
+      return res.data;
     }
   });
 
-  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    // Connect to server to process
-    alert('Import triggered — connect to server to process');
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      await api.post('/masters/products/import', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      refetch();
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Import failed. Please try again.');
+    }
   };
 
-  const handleDelete = (name: string) => {
-    if (window.confirm(`Delete ${name}? This cannot be undone.`)) {
-      // API call here
+  const handleDelete = async (id: number, name: string) => {
+    if (!window.confirm(`Delete ${name}? This cannot be undone.`)) return;
+    try {
+      await api.delete(`/masters/products/${id}`);
+      refetch();
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Delete failed.');
     }
   };
 
@@ -78,6 +79,13 @@ const ProductMaster = () => {
           />
         </div>
       </div>
+
+      {isError && (
+        <div className="vb-error-banner">
+          ⚠ Could not load products.{' '}
+          <button className="vb-btn vb-btn-sm vb-btn-outline-blue" onClick={() => refetch()}>Retry</button>
+        </div>
+      )}
 
       {/* Table */}
       <div className="vb-card" style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
@@ -138,7 +146,7 @@ const ProductMaster = () => {
                             className="vb-btn vb-btn-outline-red vb-btn-sm"
                             style={{ height: 32, padding: '0 10px', borderRadius: 6 }}
                             title="Delete"
-                            onClick={() => handleDelete(product.name)}
+                            onClick={() => handleDelete(product.id, product.name)}
                           >
                             <Trash2 size={13} />
                           </button>

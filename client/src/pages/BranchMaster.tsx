@@ -1,27 +1,16 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
+import { api } from '../lib/api';
 import { Search, Plus, Pencil, Trash2 } from 'lucide-react';
 
 const BranchMaster = () => {
   const [searchTerm, setSearchTerm] = useState('');
 
-  const { data: branches, isLoading } = useQuery({
+  const { data: branches, isLoading, isError, refetch } = useQuery({
     queryKey: ['branches'],
     queryFn: async () => {
-      try {
-        const res = await axios.get('http://localhost:3000/masters/branches', {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-        });
-        return res.data;
-      } catch {
-        return [
-          { id: 1, code: 'GODOWN', name: 'Head Office / Godown', type: 'GODOWN', is_active: true },
-          { id: 2, code: 'RPC1', name: 'RPC Branch 1', type: 'BRANCH', is_active: true },
-          { id: 3, code: 'RPC2', name: 'RPC Branch 2', type: 'BRANCH', is_active: true },
-          { id: 4, code: 'RPC3', name: 'RPC Branch 3', type: 'BRANCH', is_active: false },
-        ];
-      }
+      const res = await api.get('/masters/branches');
+      return res.data;
     }
   });
 
@@ -56,6 +45,13 @@ const BranchMaster = () => {
           />
         </div>
       </div>
+
+      {isError && (
+        <div className="vb-error-banner">
+          ⚠ Could not load branches.{' '}
+          <button className="vb-btn vb-btn-sm vb-btn-outline-blue" onClick={() => refetch()}>Retry</button>
+        </div>
+      )}
 
       <div className="vb-card" style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         <div style={{ flex: 1, overflowY: 'auto' }}>

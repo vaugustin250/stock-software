@@ -1,27 +1,16 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
+import { api } from '../lib/api';
 import { Search, Plus, Pencil, Trash2 } from 'lucide-react';
 
 const UserMaster = () => {
   const [searchTerm, setSearchTerm] = useState('');
 
-  const { data: users, isLoading } = useQuery({
+  const { data: users, isLoading, isError, refetch } = useQuery({
     queryKey: ['users'],
     queryFn: async () => {
-      try {
-        const res = await axios.get('http://localhost:3000/masters/users', {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-        });
-        return res.data;
-      } catch {
-        return [
-          { id: 1, username: 'admin', role: 'ADMIN', branch_name: 'All Branches', is_active: true },
-          { id: 2, username: 'godown_user', role: 'WAREHOUSE', branch_name: 'Head Office', is_active: true },
-          { id: 3, username: 'rpc1_user', role: 'BRANCH', branch_name: 'RPC Branch 1', is_active: true },
-          { id: 4, username: 'rpc2_user', role: 'BRANCH', branch_name: 'RPC Branch 2', is_active: false },
-        ];
-      }
+      const res = await api.get('/masters/users');
+      return res.data;
     }
   });
 
@@ -61,6 +50,13 @@ const UserMaster = () => {
           />
         </div>
       </div>
+
+      {isError && (
+        <div className="vb-error-banner">
+          ⚠ Could not load users.{' '}
+          <button className="vb-btn vb-btn-sm vb-btn-outline-blue" onClick={() => refetch()}>Retry</button>
+        </div>
+      )}
 
       <div className="vb-card" style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         <div style={{ flex: 1, overflowY: 'auto' }}>

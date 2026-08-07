@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import axios from 'axios';
+import { api } from '../lib/api';
 import { Calendar } from 'lucide-react';
 
 // Shared toast hook
@@ -23,55 +23,27 @@ const PoEntry = () => {
 
   const today = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 
-  const { data: groups } = useQuery({
+  const { data: groups, isError: groupsError } = useQuery({
     queryKey: ['groups'],
     queryFn: async () => {
-      try {
-        const res = await axios.get('http://localhost:3000/masters/groups', {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-        });
-        return res.data;
-      } catch {
-        return [
-          { id: 1, name: 'Special Vegetables' },
-          { id: 2, name: 'Fruits' },
-          { id: 3, name: 'Green Vegetables' },
-        ];
-      }
+      const res = await api.get('/masters/groups');
+      return res.data;
     }
   });
 
-  const { data: products, isLoading: isLoadingProducts } = useQuery({
+  const { data: products, isLoading: isLoadingProducts, isError: productsError } = useQuery({
     queryKey: ['products'],
     queryFn: async () => {
-      try {
-        const res = await axios.get('http://localhost:3000/masters/products', {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-        });
-        return res.data;
-      } catch {
-        return [
-          { id: 101, group_id: 1, name: 'Tomato', name_tamil: 'தக்காளி', unit_name: 'KG', default_unit_id: 1 },
-          { id: 102, group_id: 1, name: 'Onion', name_tamil: 'வெங்காயம்', unit_name: 'KG', default_unit_id: 1 },
-          { id: 103, group_id: 1, name: 'Potato', name_tamil: 'உருளை', unit_name: 'Bag', default_unit_id: 2 },
-          { id: 104, group_id: 1, name: 'Carrot', name_tamil: 'கேரட்', unit_name: 'Box', default_unit_id: 3 },
-          { id: 105, group_id: 2, name: 'Apple', name_tamil: 'ஆப்பிள்', unit_name: 'Box', default_unit_id: 3 },
-        ];
-      }
+      const res = await api.get('/masters/products');
+      return res.data;
     }
   });
 
   const { data: todayPo } = useQuery({
     queryKey: ['po_entry', new Date().toISOString().split('T')[0]],
     queryFn: async () => {
-      try {
-        const res = await axios.get('http://localhost:3000/po/entry', {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-        });
-        return res.data;
-      } catch {
-        return { lines: [] };
-      }
+      const res = await api.get('/po/entry');
+      return res.data;
     },
   });
 
@@ -85,9 +57,7 @@ const PoEntry = () => {
 
   const savePoMutation = useMutation({
     mutationFn: async (lines: any[]) => {
-      await axios.post('http://localhost:3000/po/entry', { lines }, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      });
+      await api.post('/po/entry', { lines });
     },
     onSuccess: () => {
       setShowSuccess(true);
@@ -167,6 +137,12 @@ const PoEntry = () => {
           {today}
         </div>
       </div>
+
+      {(groupsError || productsError) && (
+        <div className="vb-error-banner">
+          ⚠ Could not load products or categories. Please check your connection and refresh.
+        </div>
+      )}
 
       {/* Locked banner */}
       {isLocked && (

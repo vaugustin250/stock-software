@@ -1,26 +1,16 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
+import { api } from '../lib/api';
 import { Search, Plus, Pencil } from 'lucide-react';
 
 const DepartmentMaster = () => {
   const [searchTerm, setSearchTerm] = useState('');
 
-  const { data: depts, isLoading } = useQuery({
+  const { data: depts, isLoading, isError, refetch } = useQuery({
     queryKey: ['departments'],
     queryFn: async () => {
-      try {
-        const res = await axios.get('http://localhost:3000/masters/departments', {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-        });
-        return res.data;
-      } catch {
-        return [
-          { id: 1, name: 'Grocery', name_tamil: 'மளிகை' },
-          { id: 2, name: 'Fresh Produce', name_tamil: 'புதிய காய்கறிகள்' },
-          { id: 3, name: 'Fruits', name_tamil: 'பழங்கள்' },
-        ];
-      }
+      const res = await api.get('/masters/departments');
+      return res.data;
     }
   });
 
@@ -54,6 +44,13 @@ const DepartmentMaster = () => {
           />
         </div>
       </div>
+
+      {isError && (
+        <div className="vb-error-banner">
+          ⚠ Could not load departments.{' '}
+          <button className="vb-btn vb-btn-sm vb-btn-outline-blue" onClick={() => refetch()}>Retry</button>
+        </div>
+      )}
 
       <div className="vb-card" style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         <div style={{ flex: 1, overflowY: 'auto' }}>

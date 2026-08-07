@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import axios from 'axios';
+import { api } from '../lib/api';
 import { Info } from 'lucide-react';
 
 function useToast() {
@@ -25,46 +25,24 @@ const PurchaseEntry = () => {
   const { data: groups } = useQuery({
     queryKey: ['groups'],
     queryFn: async () => {
-      try {
-        const res = await axios.get('http://localhost:3000/masters/groups', {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-        });
-        return res.data;
-      } catch {
-        return [{ id: 1, name: 'Special Vegetables' }, { id: 2, name: 'Fruits' }];
-      }
+      const res = await api.get('/masters/groups');
+      return res.data;
     }
   });
 
-  const { data: products, isLoading } = useQuery({
+  const { data: products, isLoading, isError: productsError } = useQuery({
     queryKey: ['products'],
     queryFn: async () => {
-      try {
-        const res = await axios.get('http://localhost:3000/masters/products', {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-        });
-        return res.data;
-      } catch {
-        return [
-          { id: 101, group_id: 1, name: 'Tomato', name_tamil: 'தக்காளி', unit_name: 'KG', default_unit_id: 1 },
-          { id: 102, group_id: 1, name: 'Onion', name_tamil: 'வெங்காயம்', unit_name: 'KG', default_unit_id: 1 },
-          { id: 103, group_id: 2, name: 'Apple', name_tamil: 'ஆப்பிள்', unit_name: 'Box', default_unit_id: 2 },
-        ];
-      }
+      const res = await api.get('/masters/products');
+      return res.data;
     }
   });
 
   const { data: todayPurchase } = useQuery({
     queryKey: ['purchase_entry', new Date().toISOString().split('T')[0]],
     queryFn: async () => {
-      try {
-        const res = await axios.get('http://localhost:3000/purchase/entry', {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-        });
-        return res.data;
-      } catch {
-        return { lines: [], combined_total: { Tomato: 250, Onion: 110 } };
-      }
+      const res = await api.get('/purchase/entry');
+      return res.data;
     },
   });
 
@@ -80,9 +58,7 @@ const PurchaseEntry = () => {
 
   const saveMutation = useMutation({
     mutationFn: async (lines: any[]) => {
-      await axios.post('http://localhost:3000/purchase/entry', { lines }, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      });
+      await api.post('/purchase/entry', { lines });
     },
     onSuccess: () => {
       setShowSuccess(true);
@@ -160,6 +136,12 @@ const PurchaseEntry = () => {
           <p className="vb-page-sub">Godown — {today}</p>
         </div>
       </div>
+
+      {productsError && (
+        <div className="vb-error-banner">
+          ⚠ Could not load products. Please check your connection and refresh.
+        </div>
+      )}
 
       {/* Info banner */}
       {combinedText && (

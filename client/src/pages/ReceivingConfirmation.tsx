@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import axios from 'axios';
+import { api } from '../lib/api';
 import { Package } from 'lucide-react';
 
 function useToast() {
@@ -19,25 +19,11 @@ const ReceivingConfirmation = () => {
   const queryClient = useQueryClient();
   const { toast, show: showToast } = useToast();
 
-  const { data: receivingData, isLoading } = useQuery({
+  const { data: receivingData, isLoading, isError, refetch } = useQuery({
     queryKey: ['receiving_entry', new Date().toISOString().split('T')[0]],
     queryFn: async () => {
-      try {
-        const res = await axios.get('http://localhost:3000/receiving/pending', {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-        });
-        return res.data;
-      } catch {
-        return {
-          transfer: { id: 1, transfer_date: new Date().toISOString().split('T')[0] },
-          receiving: null,
-          lines: [
-            { transfer_entry_line_id: 1, product_id: 101, product_name: 'Tomato', product_name_tamil: 'தக்காளி', qty_sent: 100, qty_received: null },
-            { transfer_entry_line_id: 2, product_id: 102, product_name: 'Onion', product_name_tamil: 'வெங்காயம்', qty_sent: 50, qty_received: null },
-            { transfer_entry_line_id: 3, product_id: 103, product_name: 'Potato', product_name_tamil: 'உருளை', qty_sent: 30, qty_received: null },
-          ]
-        };
-      }
+      const res = await api.get('/receiving/pending');
+      return res.data;
     },
   });
 
@@ -53,11 +39,9 @@ const ReceivingConfirmation = () => {
 
   const saveMutation = useMutation({
     mutationFn: async (lines: any[]) => {
-      await axios.post('http://localhost:3000/receiving/confirm', {
+      await api.post('/receiving/confirm', {
         transfer_entry_id: (receivingData as any)?.transfer?.id,
         lines,
-      }, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
     },
     onSuccess: () => {
@@ -136,6 +120,13 @@ const ReceivingConfirmation = () => {
           </div>
         )}
       </div>
+
+      {isError && (
+        <div className="vb-error-banner">
+          ⚠ Could not load pending transfers.{' '}
+          <button className="vb-btn vb-btn-sm vb-btn-outline-blue" onClick={() => refetch()}>Retry</button>
+        </div>
+      )}
 
       {/* No transfer */}
       {!receivingData?.transfer && !isLoading ? (

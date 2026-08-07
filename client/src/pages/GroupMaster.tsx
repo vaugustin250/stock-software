@@ -1,27 +1,16 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
+import { api } from '../lib/api';
 import { Search, Plus, Pencil } from 'lucide-react';
 
 const GroupMaster = () => {
   const [searchTerm, setSearchTerm] = useState('');
 
-  const { data: groups, isLoading } = useQuery({
+  const { data: groups, isLoading, isError, refetch } = useQuery({
     queryKey: ['groups'],
     queryFn: async () => {
-      try {
-        const res = await axios.get('http://localhost:3000/masters/groups', {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-        });
-        return res.data;
-      } catch {
-        return [
-          { id: 1, name: 'Special Vegetables', name_tamil: 'சிறப்பு காய்கறிகள்', sort_order: 1 },
-          { id: 2, name: 'Green Vegetables', name_tamil: 'பச்சை காய்கறிகள்', sort_order: 2 },
-          { id: 3, name: 'Fruits', name_tamil: 'பழங்கள்', sort_order: 3 },
-          { id: 4, name: 'Root Vegetables', name_tamil: 'கிழங்கு வகைகள்', sort_order: 4 },
-        ];
-      }
+      const res = await api.get('/masters/groups');
+      return res.data;
     }
   });
 
@@ -55,6 +44,13 @@ const GroupMaster = () => {
           />
         </div>
       </div>
+
+      {isError && (
+        <div className="vb-error-banner">
+          ⚠ Could not load groups.{' '}
+          <button className="vb-btn vb-btn-sm vb-btn-outline-blue" onClick={() => refetch()}>Retry</button>
+        </div>
+      )}
 
       <div className="vb-card" style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         <div style={{ flex: 1, overflowY: 'auto' }}>

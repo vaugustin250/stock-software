@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import axios from 'axios';
+import { api } from '../lib/api';
 import { History } from 'lucide-react';
 
 function useToast() {
@@ -22,47 +22,25 @@ const RateMaster = () => {
   const { data: groups } = useQuery({
     queryKey: ['groups'],
     queryFn: async () => {
-      try {
-        const res = await axios.get('http://localhost:3000/masters/groups', {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-        });
-        return res.data;
-      } catch {
-        return [{ id: 1, name: 'Special Vegetables' }, { id: 2, name: 'Fruits' }];
-      }
+      const res = await api.get('/masters/groups');
+      return res.data;
     }
   });
 
-  const { data: products, isLoading } = useQuery({
+  const { data: products, isLoading, isError, refetch } = useQuery({
     queryKey: ['products_with_rates'],
     queryFn: async () => {
-      try {
-        const prodRes = await axios.get('http://localhost:3000/masters/products', {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-        });
-        const ratesRes = await axios.get('http://localhost:3000/rates', {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-        });
-        const ratesDict: Record<number, number> = {};
-        ratesRes.data.rates.forEach((r: any) => ratesDict[r.product_id] = r.rate);
-        return prodRes.data.map((p: any) => ({ ...p, current_rate: ratesDict[p.id] || 0 }));
-      } catch {
-        return [
-          { id: 101, group_id: 1, name: 'Tomato', name_tamil: 'தக்காளி', current_rate: 89 },
-          { id: 102, group_id: 1, name: 'Onion', name_tamil: 'வெங்காயம்', current_rate: 42 },
-          { id: 103, group_id: 1, name: 'Potato', name_tamil: 'உருளை', current_rate: 40 },
-        ];
-      }
+      const prodRes = await api.get('/masters/products');
+      const ratesRes = await api.get('/rates');
+      const ratesDict: Record<number, number> = {};
+      ratesRes.data.rates.forEach((r: any) => ratesDict[r.product_id] = r.rate);
+      return prodRes.data.map((p: any) => ({ ...p, current_rate: ratesDict[p.id] || 0 }));
     }
   });
 
   const saveRateMutation = useMutation({
     mutationFn: async (updates: { product_id: number; rate: number }[]) => {
-      await Promise.all(updates.map(u =>
-        axios.post('http://localhost:3000/rates', u, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-        })
-      ));
+      await Promise.all(updates.map(u => api.post('/rates', u)));
     },
     onSuccess: (_, updates) => {
       const ids = new Set(updates.map(u => u.product_id));
@@ -120,6 +98,13 @@ const RateMaster = () => {
           </div>
         )}
       </div>
+
+      {isError && (
+        <div className="vb-error-banner">
+          ⚠ Could not load rates.{' '}
+          <button className="vb-btn vb-btn-sm vb-btn-outline-blue" onClick={() => refetch()}>Retry</button>
+        </div>
+      )}
 
       {/* Table card */}
       <div className="vb-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>

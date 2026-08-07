@@ -1,26 +1,16 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
+import { api } from '../lib/api';
 import { Download, Calendar } from 'lucide-react';
 
 const PurchaseVsOrdered = () => {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
 
-  const { data: report, isLoading } = useQuery({
+  const { data: report, isLoading, isError, refetch } = useQuery({
     queryKey: ['purchase_vs_ordered', date],
     queryFn: async () => {
-      try {
-        const res = await axios.get(`http://localhost:3000/reports/purchase-vs-ordered?date=${date}`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-        });
-        return res.data;
-      } catch {
-        return [
-          { product_code: 'P001', product_name: 'Tomato', ordered: 250, purchased: 260, variance: 10 },
-          { product_code: 'P002', product_name: 'Onion', ordered: 150, purchased: 100, variance: -50 },
-          { product_code: 'P003', product_name: 'Potato', ordered: 80, purchased: 80, variance: 0 },
-        ];
-      }
+      const res = await api.get(`/reports/purchase-vs-ordered?date=${date}`);
+      return res.data;
     }
   });
 
@@ -51,6 +41,13 @@ const PurchaseVsOrdered = () => {
           </button>
         </div>
       </div>
+
+      {isError && (
+        <div className="vb-error-banner">
+          ⚠ Could not load report.{' '}
+          <button className="vb-btn vb-btn-sm vb-btn-outline-blue" onClick={() => refetch()}>Retry</button>
+        </div>
+      )}
 
       {/* Table */}
       <div className="vb-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>

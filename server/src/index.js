@@ -6,12 +6,17 @@ const { Server } = require('socket.io');
 
 const app = express();
 const httpServer = createServer(app);
+
+// Restrict CORS to the configured frontend origin.
+// In development CLIENT_URL defaults to the Vite dev server.
+const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
+
 const io = new Server(httpServer, {
-  cors: { origin: '*' }
+  cors: { origin: CLIENT_URL, methods: ['GET', 'POST'] }
 });
 
 // Middleware
-app.use(cors());
+app.use(cors({ origin: CLIENT_URL }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -21,11 +26,10 @@ app.set('io', io);
 // Basic health route
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
-// Auth & Routes will go here
+// Routes
 app.use('/auth', require('./routes/auth'));
 app.use('/masters', require('./routes/masters'));
-app.use('/po', require('./routes/po'));
-app.use('/po', require('./routes/po'));
+app.use('/po', require('./routes/po'));        // ← duplicate removed
 app.use('/purchase', require('./routes/purchase'));
 app.use('/transfer', require('./routes/transfer'));
 app.use('/receiving', require('./routes/receiving'));
@@ -41,4 +45,5 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 3000;
 httpServer.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  console.log(`CORS allowed for: ${CLIENT_URL}`);
 });

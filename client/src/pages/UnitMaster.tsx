@@ -1,28 +1,16 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
+import { api } from '../lib/api';
 import { Search, Plus, Pencil } from 'lucide-react';
 
 const UnitMaster = () => {
   const [searchTerm, setSearchTerm] = useState('');
 
-  const { data: units, isLoading } = useQuery({
+  const { data: units, isLoading, isError, refetch } = useQuery({
     queryKey: ['units'],
     queryFn: async () => {
-      try {
-        const res = await axios.get('http://localhost:3000/masters/units', {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-        });
-        return res.data;
-      } catch {
-        return [
-          { id: 1, code: 'KG', name: 'Kilogram', allow_decimal: true },
-          { id: 2, code: 'BAG', name: 'Bag', allow_decimal: false },
-          { id: 3, code: 'BOX', name: 'Box', allow_decimal: false },
-          { id: 4, code: 'PCS', name: 'Pieces', allow_decimal: false },
-          { id: 5, code: 'LTR', name: 'Litre', allow_decimal: true },
-        ];
-      }
+      const res = await api.get('/masters/units');
+      return res.data;
     }
   });
 
@@ -57,6 +45,13 @@ const UnitMaster = () => {
           />
         </div>
       </div>
+
+      {isError && (
+        <div className="vb-error-banner">
+          ⚠ Could not load units.{' '}
+          <button className="vb-btn vb-btn-sm vb-btn-outline-blue" onClick={() => refetch()}>Retry</button>
+        </div>
+      )}
 
       <div className="vb-card" style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         <div style={{ flex: 1, overflowY: 'auto' }}>

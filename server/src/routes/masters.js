@@ -179,8 +179,8 @@ router.delete('/branches/:id', requireRole(['ADMIN', 'WAREHOUSE']), async (req, 
   }
 });
 
-// Also provide a route to fetch all branches for users assignment (ADMIN only)
-router.get('/branches', requireRole(['ADMIN']), async (req, res) => {
+// Also provide a route to fetch all branches for users assignment and dropdowns
+router.get('/branches', requireRole(['ADMIN', 'WAREHOUSE', 'BRANCH']), async (req, res) => {
   try {
     const data = await db('branch').select('*').orderBy('id');
     res.json(data);

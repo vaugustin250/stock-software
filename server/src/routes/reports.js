@@ -47,7 +47,7 @@ router.get('/stock-ledger', requireRole(['ADMIN', 'WAREHOUSE']), async (req, res
 });
 
 // GET /reports/purchase-vs-ordered - Purchase vs Ordered variance report
-router.get('/purchase-vs-ordered', requireRole(['ADMIN', 'WAREHOUSE']), async (req, res) => {
+router.get('/purchase-vs-ordered', requireRole(['ADMIN', 'WAREHOUSE', 'BRANCH']), async (req, res) => {
   try {
     const report_date = req.query.date || new Date().toISOString().split('T')[0];
 

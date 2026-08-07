@@ -180,7 +180,7 @@ const ReceivingConfirmation = () => {
                               min="0"
                               step="0.01"
                               inputMode="decimal"
-                              ref={el => inputRefs.current[line.transfer_entry_line_id] = el}
+                              ref={(el) => { inputRefs.current[line.transfer_entry_line_id] = el; }}
                               value={recv !== undefined ? recv : ''}
                               onChange={e => handleQtyChange(line.transfer_entry_line_id, e.target.value)}
                               onKeyDown={e => handleKeyDown(e, index, lines)}

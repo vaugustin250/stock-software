@@ -25,7 +25,7 @@ export default function BranchMaster() {
   const [branchFormData, setBranchFormData] = useState({ name: '', code: '', is_active: true });
 
   // 1. Fetch Godowns
-  const { data: godowns, isLoading: isLoadingGodowns, isError: isErrorGodowns, refetch: refetchGodowns } = useQuery({
+  const { data: godowns, isLoading: isLoadingGodowns, isError: isErrorGodowns } = useQuery({
     queryKey: ['godowns'],
     queryFn: async () => {
       const res = await api.get('/masters/godowns');

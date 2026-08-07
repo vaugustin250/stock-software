@@ -227,7 +227,7 @@ const TransferEntry = () => {
                           <td style={{ textAlign: 'right' }}>
                             <input
                               type="number" min="0" step="0.01" inputMode="decimal"
-                              ref={el => inputRefs.current[product.id] = el}
+                              ref={(el) => { inputRefs.current[product.id] = el; }}
                               value={sentQty || ''}
                               onChange={e => handleQtyChange(product.id, e.target.value)}
                               onKeyDown={e => handleKeyDown(e, idx, filteredProducts)}

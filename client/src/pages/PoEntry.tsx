@@ -1,0 +1,285 @@
+import { useState, useRef, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import axios from 'axios';
+import { Calendar } from 'lucide-react';
+
+// Shared toast hook
+function useToast() {
+  const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const show = (msg: string, type: 'success' | 'error' | 'info' = 'success') => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 2500);
+  };
+  return { toast, show };
+}
+
+const PoEntry = () => {
+  const [selectedGroupId, setSelectedGroupId] = useState<number | ''>('');
+  const [poLines, setPoLines] = useState<Record<number, number>>({});
+  const [showSuccess, setShowSuccess] = useState(false);
+  const inputRefs = useRef<Record<number, HTMLInputElement | null>>({});
+  const queryClient = useQueryClient();
+  const { toast, show: showToast } = useToast();
+
+  const today = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+
+  const { data: groups } = useQuery({
+    queryKey: ['groups'],
+    queryFn: async () => {
+      try {
+        const res = await axios.get('http://localhost:3000/masters/groups', {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        });
+        return res.data;
+      } catch {
+        return [
+          { id: 1, name: 'Special Vegetables' },
+          { id: 2, name: 'Fruits' },
+          { id: 3, name: 'Green Vegetables' },
+        ];
+      }
+    }
+  });
+
+  const { data: products, isLoading: isLoadingProducts } = useQuery({
+    queryKey: ['products'],
+    queryFn: async () => {
+      try {
+        const res = await axios.get('http://localhost:3000/masters/products', {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        });
+        return res.data;
+      } catch {
+        return [
+          { id: 101, group_id: 1, name: 'Tomato', name_tamil: 'தக்காளி', unit_name: 'KG', default_unit_id: 1 },
+          { id: 102, group_id: 1, name: 'Onion', name_tamil: 'வெங்காயம்', unit_name: 'KG', default_unit_id: 1 },
+          { id: 103, group_id: 1, name: 'Potato', name_tamil: 'உருளை', unit_name: 'Bag', default_unit_id: 2 },
+          { id: 104, group_id: 1, name: 'Carrot', name_tamil: 'கேரட்', unit_name: 'Box', default_unit_id: 3 },
+          { id: 105, group_id: 2, name: 'Apple', name_tamil: 'ஆப்பிள்', unit_name: 'Box', default_unit_id: 3 },
+        ];
+      }
+    }
+  });
+
+  const { data: todayPo } = useQuery({
+    queryKey: ['po_entry', new Date().toISOString().split('T')[0]],
+    queryFn: async () => {
+      try {
+        const res = await axios.get('http://localhost:3000/po/entry', {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        });
+        return res.data;
+      } catch {
+        return { lines: [] };
+      }
+    },
+  });
+
+  useEffect(() => {
+    if (todayPo?.lines) {
+      const init: Record<number, number> = {};
+      (todayPo.lines as any[]).forEach((l: any) => (init[l.product_id] = l.qty));
+      setPoLines(init);
+    }
+  }, [todayPo]);
+
+  const savePoMutation = useMutation({
+    mutationFn: async (lines: any[]) => {
+      await axios.post('http://localhost:3000/po/entry', { lines }, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+    },
+    onSuccess: () => {
+      setShowSuccess(true);
+      queryClient.invalidateQueries({ queryKey: ['po_entry'] });
+      setTimeout(() => { setShowSuccess(false); }, 1600);
+    },
+    onError: () => showToast('Save failed. Please try again.', 'error'),
+  });
+
+  const handleQtyChange = (productId: number, val: string) => {
+    const qty = parseFloat(val);
+    setPoLines(prev => ({ ...prev, [productId]: isNaN(qty) ? 0 : qty }));
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, idx: number, list: any[]) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const next = list[idx + 1];
+      if (next && inputRefs.current[next.id]) inputRefs.current[next.id]?.focus();
+    }
+  };
+
+  const handleSave = () => {
+    const linesToSave = Object.entries(poLines)
+      .map(([pid, qty]) => ({
+        product_id: parseInt(pid),
+        unit_id: products?.find((p: any) => p.id === parseInt(pid))?.default_unit_id || 1,
+        qty,
+      }))
+      .filter(l => l.qty > 0);
+
+    if (linesToSave.length === 0) {
+      showToast('Please enter at least one quantity.', 'error');
+      return;
+    }
+    savePoMutation.mutate(linesToSave);
+  };
+
+  const filteredProducts = products?.filter((p: any) =>
+    selectedGroupId === '' || p.group_id === selectedGroupId
+  ) || [];
+
+  const enteredCount = Object.values(poLines).filter(q => q > 0).length;
+  const isLocked = (todayPo as any)?.status === 'LOCKED';
+
+  return (
+    <div className="vb-page">
+
+      {/* Success Overlay */}
+      {showSuccess && (
+        <div className="vb-success-overlay">
+          <div className="vb-success-icon">✅</div>
+          <div className="vb-success-text">Order Saved!</div>
+          <div style={{ color: 'rgba(255,255,255,0.85)', marginTop: 8, fontSize: 15, fontFamily: "'Noto Sans Tamil', sans-serif" }}>
+            ஆர்டர் சேமிக்கப்பட்டது!
+          </div>
+        </div>
+      )}
+
+      {/* Toast */}
+      {toast && (
+        <div className="vb-toast-wrap">
+          <div className={`vb-toast ${toast.type}`}>{toast.msg}</div>
+        </div>
+      )}
+
+      {/* Header */}
+      <div className="vb-page-header">
+        <div>
+          <h1 className="vb-page-title">Today's Order</h1>
+          <p className="vb-page-sub" style={{ fontFamily: "'Noto Sans Tamil', sans-serif" }}>
+            இன்றைய ஆர்டர் / Daily PO Entry
+          </p>
+        </div>
+        <div className="vb-date-chip">
+          <Calendar size={14} />
+          {today}
+        </div>
+      </div>
+
+      {/* Locked banner */}
+      {isLocked && (
+        <div className="vb-warning-banner">
+          🔒 This order has been locked by the Warehouse and cannot be edited.
+        </div>
+      )}
+
+      {/* Filter + table card */}
+      <div className="vb-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+
+        {/* Category Selector */}
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--vb-border)', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <label className="vb-label" style={{ margin: 0, whiteSpace: 'nowrap' }}>Choose Category</label>
+          <div style={{ position: 'relative', minWidth: 220, flex: 1 }}>
+            <select
+              className="vb-select"
+              value={selectedGroupId}
+              onChange={e => setSelectedGroupId(e.target.value === '' ? '' : parseInt(e.target.value))}
+            >
+              <option value="">— All Categories —</option>
+              {groups?.map((g: any) => (
+                <option key={g.id} value={g.id}>{g.name}</option>
+              ))}
+            </select>
+          </div>
+          {enteredCount > 0 && (
+            <div className="vb-badge vb-badge-green" style={{ fontSize: 13, padding: '6px 12px' }}>
+              ✓ {enteredCount} item{enteredCount !== 1 ? 's' : ''} entered
+            </div>
+          )}
+        </div>
+
+        {/* Product Table */}
+        <div style={{ flex: 1, overflowY: 'auto' }}>
+          {isLoadingProducts ? (
+            <div style={{ padding: 32, textAlign: 'center' }}>
+              {[1,2,3,4].map(i => (
+                <div key={i} className="vb-skeleton" style={{ height: 56, marginBottom: 8 }} />
+              ))}
+            </div>
+          ) : (
+            <table className="vb-table">
+              <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
+                <tr>
+                  <th>Item</th>
+                  <th style={{ textAlign: 'center', width: 80 }}>Unit</th>
+                  <th style={{ textAlign: 'right', width: 160 }}>Quantity</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredProducts.length === 0 ? (
+                  <tr>
+                    <td colSpan={3} style={{ textAlign: 'center', padding: '48px 16px', color: 'var(--vb-muted)' }}>
+                      No products in this category.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredProducts.map((product: any, index: number) => {
+                    const qty = poLines[product.id];
+                    const hasQty = qty && qty > 0;
+                    return (
+                      <tr key={product.id} style={{ background: hasQty ? 'var(--vb-green-pale)' : undefined }}>
+                        <td>
+                          <span className="vb-product-name-ta">{product.name_tamil || product.name}</span>
+                          {product.name_tamil && (
+                            <span className="vb-product-name-en">{product.name}</span>
+                          )}
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          <span className="vb-badge vb-badge-grey">{product.unit_name || 'KG'}</span>
+                        </td>
+                        <td style={{ textAlign: 'right' }}>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            inputMode="decimal"
+                            ref={(el): void => { inputRefs.current[product.id] = el; }}
+                            value={qty || ''}
+                            onChange={e => handleQtyChange(product.id, e.target.value)}
+                            onKeyDown={e => handleKeyDown(e, index, filteredProducts)}
+                            disabled={isLocked}
+                            className="vb-qty-input"
+                            style={{ width: 130 }}
+                            placeholder="0"
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+
+      {/* Sticky Save */}
+      <div className="vb-sticky-action">
+        <button
+          onClick={handleSave}
+          disabled={savePoMutation.isPending || isLocked}
+          className="vb-btn vb-btn-save"
+          style={{ width: '100%' }}
+        >
+          {savePoMutation.isPending ? (
+            <span style={{ width: 20, height: 20, border: '3px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite', display: 'inline-block' }} />
+          ) : <>✅ Save Order — ஆர்டர் சேமிக்கவும்</>}
+        </button>
+      </div>
+    </div>
+  );
+};
+
+export default PoEntry;

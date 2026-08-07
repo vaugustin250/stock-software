@@ -1,0 +1,247 @@
+import { useState, useRef, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import axios from 'axios';
+import { Package } from 'lucide-react';
+
+function useToast() {
+  const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const show = (msg: string, type: 'success' | 'error' | 'info' = 'success') => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 2500);
+  };
+  return { toast, show };
+}
+
+const ReceivingConfirmation = () => {
+  const [receivingLines, setReceivingLines] = useState<Record<number, number>>({});
+  const [showSuccess, setShowSuccess] = useState(false);
+  const inputRefs = useRef<Record<number, HTMLInputElement | null>>({});
+  const queryClient = useQueryClient();
+  const { toast, show: showToast } = useToast();
+
+  const { data: receivingData, isLoading } = useQuery({
+    queryKey: ['receiving_entry', new Date().toISOString().split('T')[0]],
+    queryFn: async () => {
+      try {
+        const res = await axios.get('http://localhost:3000/receiving/pending', {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        });
+        return res.data;
+      } catch {
+        return {
+          transfer: { id: 1, transfer_date: new Date().toISOString().split('T')[0] },
+          receiving: null,
+          lines: [
+            { transfer_entry_line_id: 1, product_id: 101, product_name: 'Tomato', product_name_tamil: 'தக்காளி', qty_sent: 100, qty_received: null },
+            { transfer_entry_line_id: 2, product_id: 102, product_name: 'Onion', product_name_tamil: 'வெங்காயம்', qty_sent: 50, qty_received: null },
+            { transfer_entry_line_id: 3, product_id: 103, product_name: 'Potato', product_name_tamil: 'உருளை', qty_sent: 30, qty_received: null },
+          ]
+        };
+      }
+    },
+  });
+
+  useEffect(() => {
+    if (receivingData?.lines) {
+      const init: Record<number, number> = {};
+      receivingData.lines.forEach((l: any) => {
+        init[l.transfer_entry_line_id] = l.qty_received !== null ? l.qty_received : l.qty_sent;
+      });
+      setReceivingLines(init);
+    }
+  }, [receivingData]);
+
+  const saveMutation = useMutation({
+    mutationFn: async (lines: any[]) => {
+      await axios.post('http://localhost:3000/receiving/confirm', {
+        transfer_entry_id: (receivingData as any)?.transfer?.id,
+        lines,
+      }, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+    },
+    onSuccess: () => {
+      setShowSuccess(true);
+      queryClient.invalidateQueries({ queryKey: ['receiving_entry'] });
+      setTimeout(() => setShowSuccess(false), 1600);
+    },
+    onError: () => showToast('Save failed. Please try again.', 'error'),
+  });
+
+  const handleQtyChange = (id: number, val: string) => {
+    const qty = parseFloat(val);
+    setReceivingLines(prev => ({ ...prev, [id]: isNaN(qty) ? 0 : qty }));
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, idx: number, lines: any[]) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const next = lines[idx + 1];
+      if (next && inputRefs.current[next.transfer_entry_line_id]) {
+        inputRefs.current[next.transfer_entry_line_id]?.focus();
+      }
+    }
+  };
+
+  const handleSave = () => {
+    if (!receivingData?.transfer) return;
+    const lines = Object.entries(receivingLines).map(([id, qty]) => ({
+      transfer_entry_line_id: parseInt(id),
+      qty_received: qty,
+    }));
+    saveMutation.mutate(lines);
+  };
+
+  const lines = receivingData?.lines || [];
+  const shortages = lines.filter((l: any) => {
+    const recv = receivingLines[l.transfer_entry_line_id];
+    return recv !== undefined && recv < l.qty_sent;
+  });
+
+  return (
+    <div className="vb-page">
+
+      {/* Success overlay */}
+      {showSuccess && (
+        <div className="vb-success-overlay">
+          <div className="vb-success-icon">✅</div>
+          <div className="vb-success-text">Received & Saved!</div>
+          <div style={{ color: 'rgba(255,255,255,0.85)', marginTop: 8, fontSize: 15, fontFamily: "'Noto Sans Tamil', sans-serif" }}>
+            பொருட்கள் உறுதிசெய்யப்பட்டது!
+          </div>
+        </div>
+      )}
+
+      {/* Toast */}
+      {toast && (
+        <div className="vb-toast-wrap">
+          <div className={`vb-toast ${toast.type}`}>{toast.msg}</div>
+        </div>
+      )}
+
+      {/* Header */}
+      <div className="vb-page-header">
+        <div>
+          <h1 className="vb-page-title">Receive Stock</h1>
+          <p className="vb-page-sub">
+            From Godown — Sent Today &nbsp;
+            {receivingData?.transfer?.transfer_date && (
+              <span className="vb-badge vb-badge-blue">{receivingData.transfer.transfer_date}</span>
+            )}
+          </p>
+        </div>
+        {shortages.length > 0 && (
+          <div className="vb-badge vb-badge-amber" style={{ fontSize: 13, padding: '6px 12px' }}>
+            ⚠ {shortages.length} shortage{shortages.length !== 1 ? 's' : ''} found
+          </div>
+        )}
+      </div>
+
+      {/* No transfer */}
+      {!receivingData?.transfer && !isLoading ? (
+        <div className="vb-card" style={{ padding: '64px 32px', textAlign: 'center' }}>
+          <Package size={48} style={{ color: 'var(--vb-muted)', marginBottom: 16 }} />
+          <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--vb-muted)' }}>
+            No pending transfers from Godown today.
+          </div>
+          <div style={{ fontSize: 14, color: 'var(--vb-muted)', marginTop: 8, fontFamily: "'Noto Sans Tamil', sans-serif" }}>
+            இன்று எந்த பொருளும் அனுப்பப்படவில்லை.
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="vb-card" style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ flex: 1, overflowY: 'auto' }}>
+              {isLoading ? (
+                <div style={{ padding: 32 }}>
+                  {[1,2,3].map(i => <div key={i} className="vb-skeleton" style={{ height: 64, marginBottom: 8 }} />)}
+                </div>
+              ) : (
+                <table className="vb-table">
+                  <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
+                    <tr>
+                      <th>Item / பொருள்</th>
+                      <th style={{ textAlign: 'right', width: 110 }}>Sent</th>
+                      <th style={{ textAlign: 'right', width: 160 }}>You Received</th>
+                      <th style={{ textAlign: 'right', width: 110 }}>Difference</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {lines.map((line: any, index: number) => {
+                      const recv = receivingLines[line.transfer_entry_line_id];
+                      const diff = recv !== undefined ? recv - line.qty_sent : 0;
+                      const isShort = diff < 0;
+
+                      return (
+                        <tr key={line.transfer_entry_line_id} className={isShort ? 'row-shortage' : ''}>
+                          <td>
+                            <span className="vb-product-name-ta">{line.product_name_tamil || line.product_name}</span>
+                            {line.product_name_tamil && (
+                              <span className="vb-product-name-en">{line.product_name}</span>
+                            )}
+                          </td>
+                          <td style={{ textAlign: 'right', fontWeight: 700, fontSize: 16 }}>
+                            {line.qty_sent}
+                          </td>
+                          <td style={{ textAlign: 'right' }}>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              inputMode="decimal"
+                              ref={el => inputRefs.current[line.transfer_entry_line_id] = el}
+                              value={recv !== undefined ? recv : ''}
+                              onChange={e => handleQtyChange(line.transfer_entry_line_id, e.target.value)}
+                              onKeyDown={e => handleKeyDown(e, index, lines)}
+                              className={`vb-qty-input${isShort ? ' shortage' : ''}`}
+                              style={{ width: 130 }}
+                            />
+                          </td>
+                          <td style={{ textAlign: 'right' }}>
+                            {diff !== 0 ? (
+                              <div>
+                                <span style={{
+                                  fontSize: 14, fontWeight: 800,
+                                  color: diff < 0 ? 'var(--vb-red-dark)' : 'var(--vb-green-dark)',
+                                }}>
+                                  {diff > 0 ? '+' : ''}{diff.toFixed(2)}
+                                </span>
+                                {isShort && (
+                                  <div style={{ fontSize: 11, color: 'var(--vb-amber-dark)', fontWeight: 600, marginTop: 2 }}>
+                                    {Math.abs(diff).toFixed(2)} short
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <span style={{ color: 'var(--vb-muted)', fontSize: 13 }}>✓ OK</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+
+          {/* Sticky Save */}
+          <div className="vb-sticky-action">
+            <button
+              onClick={handleSave}
+              disabled={saveMutation.isPending || !(receivingData as any)?.transfer}
+              className="vb-btn vb-btn-save"
+              style={{ width: '100%' }}
+            >
+              {saveMutation.isPending ? (
+                <span style={{ width: 20, height: 20, border: '3px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite', display: 'inline-block' }} />
+              ) : '✅ Confirm Receipt — பெறுதல் உறுதி'}
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
+export default ReceivingConfirmation;

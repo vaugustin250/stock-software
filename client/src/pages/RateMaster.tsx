@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
-import { History } from 'lucide-react';
+import { History, Search, X } from 'lucide-react';
 
 function useToast() {
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' | 'info' } | null>(null);
@@ -14,6 +14,7 @@ function useToast() {
 
 const RateMaster = () => {
   const [selectedGroupId, setSelectedGroupId] = useState<number | ''>('');
+  const [searchTerm, setSearchTerm] = useState('');
   const [rateEdits, setRateEdits] = useState<Record<number, number>>({});
   const [savedRows, setSavedRows] = useState<Set<number>>(new Set());
   const queryClient = useQueryClient();
@@ -71,9 +72,18 @@ const RateMaster = () => {
     saveRateMutation.mutate(updates);
   };
 
-  const filteredProducts = products?.filter((p: any) =>
-    selectedGroupId === '' || p.group_id === selectedGroupId
-  ) || [];
+  const filteredProducts = products?.filter((p: any) => {
+    const matchesGroup = selectedGroupId === '' || p.group_id === selectedGroupId;
+    if (!matchesGroup) return false;
+    
+    if (searchTerm.trim() === '') return true;
+    const term = searchTerm.toLowerCase();
+    const enName = (p.name || '').toLowerCase();
+    const taName = (p.name_tamil || '').toLowerCase();
+    const code = (p.code || '').toLowerCase();
+    
+    return enName.includes(term) || taName.includes(term) || code.includes(term);
+  }) || [];
 
   const editCount = Object.keys(rateEdits).length;
 
@@ -108,11 +118,36 @@ const RateMaster = () => {
 
       {/* Table card */}
       <div className="vb-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--vb-border)', display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-          <label className="vb-label" style={{ margin: 0 }}>Category</label>
-          <div style={{ position: 'relative', minWidth: 200, flex: 1 }}>
+        
+        {/* Filter & Search */}
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--vb-border)', display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap', backgroundColor: '#f8fafc' }}>
+          
+          <div style={{ position: 'relative', flex: 1, minWidth: 280 }}>
+            <div style={{ position: 'absolute', top: 12, left: 14, color: '#64748b' }}>
+              <Search size={22} />
+            </div>
+            <input
+              type="text"
+              className="pos-input"
+              style={{ paddingLeft: 44, paddingRight: 40 }}
+              placeholder="🔍 Search English or Tamil... / பொருள் தேடு..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            {searchTerm && (
+              <button 
+                onClick={() => setSearchTerm('')}
+                style={{ position: 'absolute', top: 12, right: 14, color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }}
+              >
+                <X size={22} />
+              </button>
+            )}
+          </div>
+
+          <div style={{ position: 'relative', width: 260 }}>
             <select
-              className="vb-select"
+              className="pos-input"
+              style={{ borderColor: '#cbd5e1', color: '#334155' }}
               value={selectedGroupId}
               onChange={e => setSelectedGroupId(e.target.value === '' ? '' : parseInt(e.target.value))}
             >

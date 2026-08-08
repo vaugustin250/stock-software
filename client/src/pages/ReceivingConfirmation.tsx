@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
-import { Package } from 'lucide-react';
+import { Package, Search, X } from 'lucide-react';
 
 function useToast() {
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' | 'info' } | null>(null);
@@ -13,6 +13,7 @@ function useToast() {
 }
 
 const ReceivingConfirmation = () => {
+  const [searchTerm, setSearchTerm] = useState('');
   const [receivingLines, setReceivingLines] = useState<Record<number, number>>({});
   const [showSuccess, setShowSuccess] = useState(false);
   const inputRefs = useRef<Record<number, HTMLInputElement | null>>({});
@@ -76,7 +77,17 @@ const ReceivingConfirmation = () => {
     saveMutation.mutate(lines);
   };
 
-  const lines = receivingData?.lines || [];
+  const allLines = receivingData?.lines || [];
+  
+  const lines = allLines.filter((l: any) => {
+    if (searchTerm.trim() === '') return true;
+    const term = searchTerm.toLowerCase();
+    const enName = (l.product_name || '').toLowerCase();
+    const taName = (l.product_name_tamil || '').toLowerCase();
+    const code = (l.product_code || '').toLowerCase();
+    return enName.includes(term) || taName.includes(term) || code.includes(term);
+  });
+
   const shortages = lines.filter((l: any) => {
     const recv = receivingLines[l.transfer_entry_line_id];
     return recv !== undefined && recv < l.qty_sent;
@@ -142,6 +153,32 @@ const ReceivingConfirmation = () => {
       ) : (
         <>
           <div className="vb-card" style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            
+            {/* Search Bar */}
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--vb-border)', backgroundColor: '#f8fafc' }}>
+              <div style={{ position: 'relative', width: '100%' }}>
+                <div style={{ position: 'absolute', top: 12, left: 14, color: '#64748b' }}>
+                  <Search size={22} />
+                </div>
+                <input
+                  type="text"
+                  className="pos-input"
+                  style={{ paddingLeft: 44, paddingRight: 40 }}
+                  placeholder="🔍 Search item to receive... / பொருள் தேடு..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+                {searchTerm && (
+                  <button 
+                    onClick={() => setSearchTerm('')}
+                    style={{ position: 'absolute', top: 12, right: 14, color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }}
+                  >
+                    <X size={22} />
+                  </button>
+                )}
+              </div>
+            </div>
+
             <div style={{ flex: 1, overflowY: 'auto' }}>
               {isLoading ? (
                 <div style={{ padding: 32 }}>

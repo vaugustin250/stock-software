@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
-import { Calendar, Search, X } from 'lucide-react';
+import { Calendar, Search, X, Filter } from 'lucide-react';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 // Shared toast hook
 function useToast() {
@@ -19,9 +20,11 @@ const PoEntry = () => {
   const [poLines, setPoLines] = useState<Record<number, number>>({});
   const [poUnits, setPoUnits] = useState<Record<number, number>>({});
   const [showSuccess, setShowSuccess] = useState(false);
+  const [showEnteredOnly, setShowEnteredOnly] = useState(false);
   const inputRefs = useRef<Record<number, HTMLInputElement | null>>({});
   const queryClient = useQueryClient();
   const { toast, show: showToast } = useToast();
+  const isMobile = useIsMobile();
 
   const today = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 
@@ -111,18 +114,19 @@ const PoEntry = () => {
     savePoMutation.mutate(linesToSave);
   };
 
-  const filteredProducts = products?.filter((p: any) => {
+  const baseFiltered = products?.filter((p: any) => {
     const matchesGroup = selectedGroupId === '' || p.group_id === selectedGroupId;
     if (!matchesGroup) return false;
-    
     if (searchTerm.trim() === '') return true;
     const term = searchTerm.toLowerCase();
-    const enName = (p.name || '').toLowerCase();
-    const taName = (p.name_tamil || '').toLowerCase();
-    const code = (p.code || '').toLowerCase();
-    
-    return enName.includes(term) || taName.includes(term) || code.includes(term);
+    return (p.name || '').toLowerCase().includes(term) ||
+      (p.name_tamil || '').toLowerCase().includes(term) ||
+      (p.code || '').toLowerCase().includes(term);
   }) || [];
+
+  const filteredProducts = showEnteredOnly
+    ? baseFiltered.filter((p: any) => (poLines[p.id] || 0) > 0)
+    : baseFiltered;
 
   const enteredCount = Object.values(poLines).filter(q => q > 0).length;
   const isLocked = (todayPo as any)?.status === 'LOCKED';
@@ -178,35 +182,34 @@ const PoEntry = () => {
       {/* Filter + table card */}
       <div className="vb-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
-        {/* Category Selector & Search */}
-        <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--vb-border)', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', backgroundColor: '#f8fafc' }}>
-          
-          <div style={{ position: 'relative', flex: 1, minWidth: 280 }}>
+        {/* Search + Category */}
+        <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--vb-border)', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', backgroundColor: '#f8fafc' }}>
+          <div style={{ position: 'relative', flex: 1, minWidth: 180 }}>
             <div style={{ position: 'absolute', top: 12, left: 14, color: '#64748b' }}>
-              <Search size={22} />
+              <Search size={18} />
             </div>
             <input
               type="text"
               className="pos-input"
-              style={{ paddingLeft: 44, paddingRight: 40 }}
-              placeholder="🔍 Search English or Tamil... / பொருள் தேடு..."
+              style={{ paddingLeft: 40, paddingRight: 36, height: 44 }}
+              placeholder="Search item / பொருள் தேடு..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
             {searchTerm && (
-              <button 
+              <button
                 onClick={() => setSearchTerm('')}
-                style={{ position: 'absolute', top: 12, right: 14, color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }}
+                style={{ position: 'absolute', top: 12, right: 12, color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }}
               >
-                <X size={22} />
+                <X size={18} />
               </button>
             )}
           </div>
 
-          <div style={{ position: 'relative', width: 260 }}>
+          <div style={{ position: 'relative', minWidth: 150, flex: isMobile ? '1 1 100%' : '0 0 200px' }}>
             <select
               className="pos-input"
-              style={{ borderColor: '#cbd5e1', color: '#334155' }}
+              style={{ borderColor: '#cbd5e1', color: '#334155', height: 44 }}
               value={selectedGroupId}
               onChange={e => setSelectedGroupId(e.target.value === '' ? '' : parseInt(e.target.value))}
             >
@@ -216,23 +219,99 @@ const PoEntry = () => {
               ))}
             </select>
           </div>
-
-          {enteredCount > 0 && (
-            <div className="vb-badge vb-badge-green" style={{ fontSize: 13, padding: '6px 12px' }}>
-              ✓ {enteredCount} item{enteredCount !== 1 ? 's' : ''} entered
-            </div>
-          )}
         </div>
 
-        {/* Product Table */}
+        {/* Toolbar: count + entered-only toggle */}
+        <div className="vb-entry-toolbar">
+          <span style={{ fontSize: 13, color: 'var(--vb-muted)', fontWeight: 500 }}>
+            {filteredProducts.length} items shown
+          </span>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            {enteredCount > 0 && (
+              <span className="vb-badge vb-badge-green" style={{ fontSize: 12, padding: '4px 10px' }}>
+                ✓ {enteredCount} entered
+              </span>
+            )}
+            {enteredCount > 0 && (
+              <button
+                className={`vb-toggle-btn${showEnteredOnly ? ' active' : ''}`}
+                onClick={() => setShowEnteredOnly(v => !v)}
+              >
+                <Filter size={13} />
+                {showEnteredOnly ? 'Show All' : 'Review entered'}
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Product List */}
         <div style={{ flex: 1, overflowY: 'auto' }}>
           {isLoadingProducts ? (
-            <div style={{ padding: 32, textAlign: 'center' }}>
-              {[1,2,3,4].map(i => (
+            <div style={{ padding: 32 }}>
+              {[1, 2, 3, 4].map(i => (
                 <div key={i} className="vb-skeleton" style={{ height: 56, marginBottom: 8 }} />
               ))}
             </div>
+          ) : isMobile ? (
+            /* ── Mobile Card Layout ── */
+            <div className="vb-mobile-list">
+              {filteredProducts.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '48px 16px', color: 'var(--vb-muted)' }}>
+                  No products found.
+                </div>
+              ) : filteredProducts.map((product: any, index: number) => {
+                const qty = poLines[product.id] || 0;
+                const hasQty = qty > 0;
+                return (
+                  <div
+                    key={product.id}
+                    className={`vb-mobile-card${hasQty ? ' has-qty' : ''}`}
+                  >
+                    <div className="vb-mobile-card-name">
+                      {product.name_tamil || product.name}
+                    </div>
+                    {product.name_tamil && (
+                      <span className="vb-mobile-card-name-en">{product.name}</span>
+                    )}
+
+                    <div className="vb-mobile-card-inputs">
+                      <div className="vb-mobile-qty-wrap">
+                        <span className="vb-mobile-qty-label">Quantity / அளவு</span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          inputMode="decimal"
+                          enterKeyHint="next"
+                          ref={(el) => { inputRefs.current[product.id] = el; }}
+                          value={qty || ''}
+                          onChange={e => handleQtyChange(product.id, e.target.value)}
+                          onKeyDown={e => handleKeyDown(e, index, filteredProducts)}
+                          disabled={isLocked}
+                          className="vb-mobile-qty-input"
+                          placeholder="0"
+                        />
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        <span className="vb-mobile-qty-label">Unit</span>
+                        <select
+                          className="vb-mobile-unit-select"
+                          value={poUnits[product.id] || product.default_unit_id || 1}
+                          onChange={(e) => setPoUnits(prev => ({ ...prev, [product.id]: parseInt(e.target.value) }))}
+                          disabled={isLocked}
+                        >
+                          {units?.map((u: any) => (
+                            <option key={u.id} value={u.id}>{u.code}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           ) : (
+            /* ── Desktop Table Layout ── */
             <table className="vb-table">
               <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
                 <tr>

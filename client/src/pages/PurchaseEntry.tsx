@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
-import { Info } from 'lucide-react';
+import { Info, Filter } from 'lucide-react';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 function useToast() {
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' | 'info' } | null>(null);
@@ -16,9 +17,11 @@ const PurchaseEntry = () => {
   const [selectedGroupId, setSelectedGroupId] = useState<number | ''>('');
   const [purchaseLines, setPurchaseLines] = useState<Record<number, { qty: number; rate: number; unit_id?: number }>>({});
   const [showSuccess, setShowSuccess] = useState(false);
+  const [showEnteredOnly, setShowEnteredOnly] = useState(false);
   const inputRefs = useRef<Record<number, { qty: HTMLInputElement | null; rate: HTMLInputElement | null }>>({});
   const queryClient = useQueryClient();
   const { toast, show: showToast } = useToast();
+  const isMobile = useIsMobile();
 
   const today = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 
@@ -129,7 +132,7 @@ const PurchaseEntry = () => {
     requiredMap.set(row.product_id, row.total);
   });
 
-  const filteredProducts = (products || [])
+  const baseFiltered = (products || [])
     .filter((p: any) => selectedGroupId === '' || p.group_id === selectedGroupId)
     .sort((a: any, b: any) => {
       const reqA = requiredMap.get(a.id) || 0;
@@ -138,6 +141,12 @@ const PurchaseEntry = () => {
       if (reqB > 0 && reqA === 0) return 1;
       return 0;
     });
+
+  const filteredProducts = showEnteredOnly
+    ? baseFiltered.filter((p: any) => (purchaseLines[p.id]?.qty || 0) > 0)
+    : baseFiltered;
+
+  const enteredCount = Object.values(purchaseLines).filter(l => l.qty > 0).length;
 
   const combinedTotal = (todayPurchase as any)?.combined_total;
   const combinedText = combinedTotal
@@ -184,9 +193,9 @@ const PurchaseEntry = () => {
 
       {/* Table */}
       <div className="vb-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--vb-border)', display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--vb-border)', display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
           <label className="vb-label" style={{ margin: 0 }}>Category</label>
-          <div style={{ position: 'relative', minWidth: 200, flex: 1 }}>
+          <div style={{ position: 'relative', minWidth: 180, flex: 1 }}>
             <select
               className="vb-select"
               value={selectedGroupId}
@@ -200,12 +209,103 @@ const PurchaseEntry = () => {
           </div>
         </div>
 
+        {/* Toolbar */}
+        <div className="vb-entry-toolbar">
+          <span style={{ fontSize: 13, color: 'var(--vb-muted)', fontWeight: 500 }}>
+            {filteredProducts.length} items shown
+          </span>
+          {enteredCount > 0 && (
+            <div style={{ display: 'flex', gap: 8 }}>
+              <span className="vb-badge vb-badge-green" style={{ fontSize: 12, padding: '4px 10px' }}>
+                ✓ {enteredCount} entered
+              </span>
+              <button
+                className={`vb-toggle-btn${showEnteredOnly ? ' active' : ''}`}
+                onClick={() => setShowEnteredOnly(v => !v)}
+              >
+                <Filter size={13} />
+                {showEnteredOnly ? 'Show All' : 'Review entered'}
+              </button>
+            </div>
+          )}
+        </div>
+
         <div style={{ flex: 1, overflowY: 'auto' }}>
           {isLoading ? (
             <div style={{ padding: 32 }}>
-              {[1,2,3].map(i => <div key={i} className="vb-skeleton" style={{ height: 64, marginBottom: 8 }} />)}
+              {[1, 2, 3].map(i => <div key={i} className="vb-skeleton" style={{ height: 64, marginBottom: 8 }} />)}
+            </div>
+          ) : isMobile ? (
+            /* ── Mobile Card Layout ── */
+            <div className="vb-mobile-list">
+              {filteredProducts.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '48px 16px', color: 'var(--vb-muted)' }}>
+                  No products found.
+                </div>
+              ) : filteredProducts.map((product: any, idx: number) => {
+                if (!inputRefs.current[product.id]) inputRefs.current[product.id] = { qty: null, rate: null };
+                const line = purchaseLines[product.id];
+                const hasQty = line?.qty && line.qty > 0;
+                const reqQty = requiredMap.get(product.id) || 0;
+                return (
+                  <div
+                    key={product.id}
+                    className={`vb-mobile-card${hasQty ? ' has-qty' : ''}${reqQty > 0 ? ' has-required' : ''}`}
+                  >
+                    <div className="vb-mobile-card-name">
+                      {product.name_tamil || product.name}
+                    </div>
+                    {product.name_tamil && (
+                      <span className="vb-mobile-card-name-en">{product.name}</span>
+                    )}
+                    {reqQty > 0 && (
+                      <div className="vb-mobile-card-chips">
+                        <span className="vb-chip vb-chip-blue">🛒 Required: {reqQty}</span>
+                      </div>
+                    )}
+                    <div className="vb-mobile-card-inputs">
+                      <div className="vb-mobile-qty-wrap">
+                        <span className="vb-mobile-qty-label">Purchased Qty</span>
+                        <input
+                          type="number" min="0" step="0.01" inputMode="decimal" enterKeyHint="next"
+                          ref={(el): void => { inputRefs.current[product.id].qty = el; }}
+                          value={line?.qty || ''}
+                          onChange={e => handleChange(product.id, 'qty', e.target.value)}
+                          onKeyDown={e => handleKeyDown(e, product.id, 'qty', idx, filteredProducts)}
+                          className="vb-mobile-qty-input" placeholder="0"
+                        />
+                      </div>
+                      <div className="vb-mobile-qty-wrap">
+                        <span className="vb-mobile-qty-label">Rate ₹</span>
+                        <input
+                          type="number" min="0" step="0.01" inputMode="decimal" enterKeyHint="next"
+                          ref={(el): void => { inputRefs.current[product.id].rate = el; }}
+                          value={line?.rate || ''}
+                          onChange={e => handleChange(product.id, 'rate', e.target.value)}
+                          onKeyDown={e => handleKeyDown(e, product.id, 'rate', idx, filteredProducts)}
+                          className="vb-mobile-qty-input" placeholder="Rate"
+                          style={{ fontSize: 18 }}
+                        />
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        <span className="vb-mobile-qty-label">Unit</span>
+                        <select
+                          className="vb-mobile-unit-select"
+                          value={line?.unit_id || product.default_unit_id || 1}
+                          onChange={(e) => handleUnitChange(product.id, parseInt(e.target.value))}
+                        >
+                          {units?.map((u: any) => (
+                            <option key={u.id} value={u.id}>{u.code}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           ) : (
+            /* ── Desktop Table ── */
             <table className="vb-table">
               <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
                 <tr>
@@ -223,7 +323,7 @@ const PurchaseEntry = () => {
                   const hasQty = line?.qty && line.qty > 0;
                   const reqQty = requiredMap.get(product.id) || 0;
                   const rowStyle = hasQty ? 'var(--vb-green-pale)' : (reqQty > 0 ? '#f0f7ff' : undefined);
-                  
+
                   return (
                     <tr key={product.id} style={{ background: rowStyle }}>
                       <td>

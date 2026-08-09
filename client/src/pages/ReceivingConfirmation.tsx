@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { Package, Search, X } from 'lucide-react';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 function useToast() {
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' | 'info' } | null>(null);
@@ -19,6 +20,7 @@ const ReceivingConfirmation = () => {
   const inputRefs = useRef<Record<number, HTMLInputElement | null>>({});
   const queryClient = useQueryClient();
   const { toast, show: showToast } = useToast();
+  const isMobile = useIsMobile();
 
   const { data: receivingData, isLoading, isError, refetch } = useQuery({
     queryKey: ['receiving_entry', new Date().toISOString().split('T')[0]],
@@ -78,14 +80,13 @@ const ReceivingConfirmation = () => {
   };
 
   const allLines = receivingData?.lines || [];
-  
+
   const lines = allLines.filter((l: any) => {
     if (searchTerm.trim() === '') return true;
     const term = searchTerm.toLowerCase();
-    const enName = (l.product_name || '').toLowerCase();
-    const taName = (l.product_name_tamil || '').toLowerCase();
-    const code = (l.product_code || '').toLowerCase();
-    return enName.includes(term) || taName.includes(term) || code.includes(term);
+    return (l.product_name || '').toLowerCase().includes(term) ||
+      (l.product_name_tamil || '').toLowerCase().includes(term) ||
+      (l.product_code || '').toLowerCase().includes(term);
   });
 
   const shortages = lines.filter((l: any) => {
@@ -119,7 +120,7 @@ const ReceivingConfirmation = () => {
         <div>
           <h1 className="vb-page-title">Receive Stock</h1>
           <p className="vb-page-sub">
-            From Godown — Sent Today &nbsp;
+            From Godown — Sent Today&nbsp;
             {receivingData?.transfer?.transfer_date && (
               <span className="vb-badge vb-badge-blue">{receivingData.transfer.transfer_date}</span>
             )}
@@ -153,27 +154,27 @@ const ReceivingConfirmation = () => {
       ) : (
         <>
           <div className="vb-card" style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-            
+
             {/* Search Bar */}
-            <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--vb-border)', backgroundColor: '#f8fafc' }}>
+            <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--vb-border)', backgroundColor: '#f8fafc' }}>
               <div style={{ position: 'relative', width: '100%' }}>
                 <div style={{ position: 'absolute', top: 12, left: 14, color: '#64748b' }}>
-                  <Search size={22} />
+                  <Search size={18} />
                 </div>
                 <input
                   type="text"
                   className="pos-input"
-                  style={{ paddingLeft: 44, paddingRight: 40 }}
-                  placeholder="🔍 Search item to receive... / பொருள் தேடு..."
+                  style={{ paddingLeft: 40, paddingRight: 36, height: 44 }}
+                  placeholder="Search item / பொருள் தேடு..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
                 {searchTerm && (
-                  <button 
+                  <button
                     onClick={() => setSearchTerm('')}
-                    style={{ position: 'absolute', top: 12, right: 14, color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }}
+                    style={{ position: 'absolute', top: 12, right: 12, color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }}
                   >
-                    <X size={22} />
+                    <X size={18} />
                   </button>
                 )}
               </div>
@@ -182,9 +183,64 @@ const ReceivingConfirmation = () => {
             <div style={{ flex: 1, overflowY: 'auto' }}>
               {isLoading ? (
                 <div style={{ padding: 32 }}>
-                  {[1,2,3].map(i => <div key={i} className="vb-skeleton" style={{ height: 64, marginBottom: 8 }} />)}
+                  {[1, 2, 3].map(i => <div key={i} className="vb-skeleton" style={{ height: 64, marginBottom: 8 }} />)}
+                </div>
+              ) : isMobile ? (
+                /* ── Mobile Card Layout ── */
+                <div className="vb-mobile-list">
+                  {lines.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '48px 16px', color: 'var(--vb-muted)' }}>
+                      No items found.
+                    </div>
+                  ) : lines.map((line: any, index: number) => {
+                    const recv = receivingLines[line.transfer_entry_line_id];
+                    const diff = recv !== undefined ? recv - line.qty_sent : 0;
+                    const isShort = diff < 0;
+                    const hasRecv = recv !== undefined && recv > 0;
+
+                    return (
+                      <div
+                        key={line.transfer_entry_line_id}
+                        className={`vb-mobile-card${isShort ? ' is-over' : hasRecv ? ' has-qty' : ''}`}
+                      >
+                        <div className="vb-mobile-card-name">
+                          {line.product_name_tamil || line.product_name}
+                        </div>
+                        {line.product_name_tamil && (
+                          <span className="vb-mobile-card-name-en">{line.product_name}</span>
+                        )}
+
+                        <div className="vb-mobile-card-chips">
+                          <span className="vb-chip vb-chip-blue">📦 Sent: {line.qty_sent}</span>
+                          {diff !== 0 && (
+                            <span className={`vb-chip ${diff < 0 ? 'vb-chip-red' : 'vb-chip-green'}`}>
+                              {diff > 0 ? `+${diff.toFixed(2)} extra` : `${Math.abs(diff).toFixed(2)} short`}
+                            </span>
+                          )}
+                          {diff === 0 && recv !== undefined && (
+                            <span className="vb-chip vb-chip-green">✓ Matches</span>
+                          )}
+                        </div>
+
+                        <div className="vb-mobile-card-inputs">
+                          <div className="vb-mobile-qty-wrap">
+                            <span className="vb-mobile-qty-label">You Received / பெற்றது</span>
+                            <input
+                              type="number" min="0" step="0.01" inputMode="decimal" enterKeyHint="next"
+                              ref={(el) => { inputRefs.current[line.transfer_entry_line_id] = el; }}
+                              value={recv !== undefined ? recv : ''}
+                              onChange={e => handleQtyChange(line.transfer_entry_line_id, e.target.value)}
+                              onKeyDown={e => handleKeyDown(e, index, lines)}
+                              className={`vb-mobile-qty-input${isShort ? ' shortage' : ''}`}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
+                /* ── Desktop Table ── */
                 <table className="vb-table">
                   <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
                     <tr>
@@ -213,10 +269,7 @@ const ReceivingConfirmation = () => {
                           </td>
                           <td style={{ textAlign: 'right' }}>
                             <input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              inputMode="decimal"
+                              type="number" min="0" step="0.01" inputMode="decimal"
                               ref={(el) => { inputRefs.current[line.transfer_entry_line_id] = el; }}
                               value={recv !== undefined ? recv : ''}
                               onChange={e => handleQtyChange(line.transfer_entry_line_id, e.target.value)}
@@ -228,10 +281,7 @@ const ReceivingConfirmation = () => {
                           <td style={{ textAlign: 'right' }}>
                             {diff !== 0 ? (
                               <div>
-                                <span style={{
-                                  fontSize: 14, fontWeight: 800,
-                                  color: diff < 0 ? 'var(--vb-red-dark)' : 'var(--vb-green-dark)',
-                                }}>
+                                <span style={{ fontSize: 14, fontWeight: 800, color: diff < 0 ? 'var(--vb-red-dark)' : 'var(--vb-green-dark)' }}>
                                   {diff > 0 ? '+' : ''}{diff.toFixed(2)}
                                 </span>
                                 {isShort && (

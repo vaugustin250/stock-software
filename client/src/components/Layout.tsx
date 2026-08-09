@@ -44,12 +44,19 @@ const navItems: NavItem[] = [
   { name: 'Users',           href: '/masters/users',       icon: Users,          roles: ['ADMIN'],                        section: 'Masters' },
 ];
 
-const bottomNavItems: NavItem[] = [
-  { name: 'Home',     href: '/dashboard',           icon: Home,         roles: ['BRANCH', 'WAREHOUSE', 'ADMIN'] },
-  { name: 'Orders',   href: '/po/entry',            icon: ShoppingCart, roles: ['BRANCH', 'ADMIN'] },
-  { name: 'Receive',  href: '/inventory/receiving', icon: CheckSquare,  roles: ['BRANCH', 'ADMIN'] },
-  { name: 'Rates',    href: '/rates/view',          icon: IndianRupee,  roles: ['BRANCH', 'WAREHOUSE', 'ADMIN'] },
-  { name: 'More',     href: '/masters/products',    icon: Menu,         roles: ['ADMIN'] },
+const branchBottomNav: NavItem[] = [
+  { name: 'Home',    href: '/dashboard',           icon: Home,         roles: ['BRANCH', 'ADMIN'] },
+  { name: 'Orders',  href: '/po/entry',            icon: ShoppingCart, roles: ['BRANCH', 'ADMIN'] },
+  { name: 'Receive', href: '/inventory/receiving', icon: CheckSquare,  roles: ['BRANCH', 'ADMIN'] },
+  { name: 'Rates',   href: '/rates/view',          icon: IndianRupee,  roles: ['BRANCH', 'ADMIN'] },
+];
+
+const warehouseBottomNav: NavItem[] = [
+  { name: 'Home',     href: '/dashboard',          icon: Home,         roles: ['WAREHOUSE', 'ADMIN'] },
+  { name: 'Purchase', href: '/inventory/purchase', icon: Box,          roles: ['WAREHOUSE', 'ADMIN'] },
+  { name: 'Send',     href: '/inventory/transfer', icon: Truck,        roles: ['WAREHOUSE', 'ADMIN'] },
+  { name: 'Orders',   href: '/po/combined-report', icon: ClipboardList,roles: ['WAREHOUSE', 'ADMIN'] },
+  { name: 'Rates',    href: '/rates/view',         icon: IndianRupee,  roles: ['WAREHOUSE', 'ADMIN'] },
 ];
 
 const Layout = () => {
@@ -76,7 +83,9 @@ const Layout = () => {
     sections[s].push(item);
   });
 
-  const filteredBottom = bottomNavItems.filter(item => item.roles.includes(role));
+  const filteredBottom = role === 'WAREHOUSE'
+    ? warehouseBottomNav
+    : branchBottomNav.filter(item => item.roles.includes(role));
 
   const handleLogout = () => {
     localStorage.removeItem('token');

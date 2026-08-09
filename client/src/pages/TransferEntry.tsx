@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
-import { Truck } from 'lucide-react';
+import { Truck, Filter } from 'lucide-react';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 function useToast() {
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' | 'info' } | null>(null);
@@ -18,9 +19,11 @@ const TransferEntry = () => {
   const [transferLines, setTransferLines] = useState<Record<number, number>>({});
   const [transferUnits, setTransferUnits] = useState<Record<number, number>>({});
   const [showSuccess, setShowSuccess] = useState(false);
+  const [showEnteredOnly, setShowEnteredOnly] = useState(false);
   const inputRefs = useRef<Record<number, HTMLInputElement | null>>({});
   const queryClient = useQueryClient();
   const { toast, show: showToast } = useToast();
+  const isMobile = useIsMobile();
 
   const { data: branches, isError: branchesError } = useQuery({
     queryKey: ['branches_transfer'],
@@ -37,8 +40,6 @@ const TransferEntry = () => {
     queryKey: ['products_with_stock'],
     queryFn: async () => {
       const res = await api.get('/masters/products');
-      // stock_balance will come from a real stock endpoint in the future;
-      // for now show 0 until the stock-ledger API is wired to this view
       return res.data.map((p: any) => ({ ...p, stock_balance: p.stock_balance ?? 0 }));
     }
   });
@@ -124,7 +125,7 @@ const TransferEntry = () => {
     orderedMap.set(l.product_id, l.qty);
   });
 
-  const filteredProducts = (products || [])
+  const baseFiltered = (products || [])
     .filter((p: any) => selectedGroupId === '' || p.group_id === selectedGroupId)
     .sort((a: any, b: any) => {
       const aOrdered = orderedMap.get(a.id) || 0;
@@ -134,11 +135,16 @@ const TransferEntry = () => {
       return 0;
     });
 
+  const filteredProducts = showEnteredOnly
+    ? baseFiltered.filter((p: any) => (transferLines[p.id] || 0) > 0)
+    : baseFiltered;
+
   const overAllocated = filteredProducts.some((p: any) => {
     const sent = transferLines[p.id] || 0;
     return p.stock_balance > 0 && sent > p.stock_balance;
   });
 
+  const enteredCount = Object.values(transferLines).filter(q => q > 0).length;
   const selectedBranch = branches?.find((b: any) => b.id === selectedBranchId);
 
   return (
@@ -175,9 +181,9 @@ const TransferEntry = () => {
       )}
 
       {/* Branch + Group pickers */}
-      <div className="vb-card" style={{ padding: '16px 20px' }}>
-        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-          <div style={{ flex: '1 1 220px' }}>
+      <div className="vb-card" style={{ padding: '16px' }}>
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ flex: '1 1 200px' }}>
             <label className="vb-label">Send To Branch</label>
             <select
               className="vb-select"
@@ -190,7 +196,7 @@ const TransferEntry = () => {
               ))}
             </select>
           </div>
-          <div style={{ flex: '1 1 200px' }}>
+          <div style={{ flex: '1 1 160px' }}>
             <label className="vb-label">Filter by Category</label>
             <select
               className="vb-select"
@@ -215,7 +221,6 @@ const TransferEntry = () => {
         </div>
       ) : (
         <>
-          {/* Over-allocation warning */}
           {overAllocated && (
             <div className="vb-warning-banner">
               ⚠ Some quantities exceed the available godown stock. Please reduce before saving.
@@ -223,12 +228,103 @@ const TransferEntry = () => {
           )}
 
           <div className="vb-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            {/* Toolbar */}
+            <div className="vb-entry-toolbar">
+              <span style={{ fontSize: 13, color: 'var(--vb-muted)', fontWeight: 500 }}>
+                {filteredProducts.length} items
+              </span>
+              {enteredCount > 0 && (
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <span className="vb-badge vb-badge-green" style={{ fontSize: 12, padding: '4px 10px' }}>
+                    ✓ {enteredCount} filled
+                  </span>
+                  <button
+                    className={`vb-toggle-btn${showEnteredOnly ? ' active' : ''}`}
+                    onClick={() => setShowEnteredOnly(v => !v)}
+                  >
+                    <Filter size={13} />
+                    {showEnteredOnly ? 'Show All' : 'Review filled'}
+                  </button>
+                </div>
+              )}
+            </div>
+
             <div style={{ flex: 1, overflowY: 'auto' }}>
               {isLoading ? (
                 <div style={{ padding: 32 }}>
-                  {[1,2,3].map(i => <div key={i} className="vb-skeleton" style={{ height: 64, marginBottom: 8 }} />)}
+                  {[1, 2, 3].map(i => <div key={i} className="vb-skeleton" style={{ height: 64, marginBottom: 8 }} />)}
+                </div>
+              ) : isMobile ? (
+                /* ── Mobile Card Layout ── */
+                <div className="vb-mobile-list">
+                  {filteredProducts.map((product: any, idx: number) => {
+                    const sentQty = transferLines[product.id] || 0;
+                    const orderedQty = orderedMap.get(product.id) || 0;
+                    const remaining = orderedQty > 0 ? orderedQty - sentQty : undefined;
+                    const isOver = product.stock_balance > 0 && sentQty > product.stock_balance;
+                    const hasQty = sentQty > 0;
+
+                    return (
+                      <div
+                        key={product.id}
+                        className={`vb-mobile-card${isOver ? ' is-over' : hasQty ? ' has-qty' : ''}${orderedQty > 0 ? ' has-required' : ''}`}
+                      >
+                        <div className="vb-mobile-card-name">
+                          {product.name_tamil || product.name}
+                        </div>
+                        {product.name_tamil && (
+                          <span className="vb-mobile-card-name-en">{product.name}</span>
+                        )}
+
+                        <div className="vb-mobile-card-chips">
+                          {product.stock_balance > 0 && (
+                            <span className="vb-chip vb-chip-grey">📦 Avail: {product.stock_balance}</span>
+                          )}
+                          {orderedQty > 0 && (
+                            <span className="vb-chip vb-chip-blue">🛒 Ordered: {orderedQty}</span>
+                          )}
+                          {remaining !== undefined && sentQty > 0 && (
+                            <span className={`vb-chip ${remaining < 0 ? 'vb-chip-red' : 'vb-chip-green'}`}>
+                              {remaining < 0 ? '⚠ Over' : `✓ Rem: ${remaining}`}
+                            </span>
+                          )}
+                          {isOver && (
+                            <span className="vb-chip vb-chip-red">⚠ Exceeds stock!</span>
+                          )}
+                        </div>
+
+                        <div className="vb-mobile-card-inputs">
+                          <div className="vb-mobile-qty-wrap">
+                            <span className="vb-mobile-qty-label">Send Qty</span>
+                            <input
+                              type="number" min="0" step="0.01" inputMode="decimal" enterKeyHint="next"
+                              ref={(el) => { inputRefs.current[product.id] = el; }}
+                              value={sentQty || ''}
+                              onChange={e => handleQtyChange(product.id, e.target.value)}
+                              onKeyDown={e => handleKeyDown(e, idx, filteredProducts)}
+                              className={`vb-mobile-qty-input${isOver ? ' shortage' : ''}`}
+                              placeholder="0"
+                            />
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            <span className="vb-mobile-qty-label">Unit</span>
+                            <select
+                              className="vb-mobile-unit-select"
+                              value={transferUnits[product.id] || product.default_unit_id || 1}
+                              onChange={(e) => setTransferUnits(prev => ({ ...prev, [product.id]: parseInt(e.target.value) }))}
+                            >
+                              {units?.map((u: any) => (
+                                <option key={u.id} value={u.id}>{u.code}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
+                /* ── Desktop Table ── */
                 <table className="vb-table">
                   <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
                     <tr>
@@ -247,7 +343,7 @@ const TransferEntry = () => {
                       const remaining = orderedQty > 0 ? orderedQty - sentQty : 0 - sentQty;
                       const isOver = product.stock_balance > 0 && sentQty > product.stock_balance;
                       const rowStyle = isOver ? 'var(--vb-red-pale)' : (orderedQty > 0 ? '#f0f7ff' : (sentQty > 0 ? 'var(--vb-green-pale)' : undefined));
-                      
+
                       return (
                         <tr key={product.id} style={{ background: rowStyle }}>
                           <td>
@@ -286,16 +382,13 @@ const TransferEntry = () => {
                           </td>
                           <td style={{ textAlign: 'right' }}>
                             {orderedQty > 0 ? (
-                              <span style={{
-                                fontSize: 16, fontWeight: 800,
-                                color: remaining < 0 ? 'var(--vb-red-dark)' : 'var(--vb-green-dark)',
-                              }}>
+                              <span style={{ fontSize: 16, fontWeight: 800, color: remaining < 0 ? 'var(--vb-red-dark)' : 'var(--vb-green-dark)' }}>
                                 {remaining}
                               </span>
                             ) : (
-                               <span style={{ color: remaining < 0 ? 'var(--vb-red-dark)' : 'var(--vb-muted)' }}>
-                                 {remaining < 0 ? remaining : '—'}
-                               </span>
+                              <span style={{ color: remaining < 0 ? 'var(--vb-red-dark)' : 'var(--vb-muted)' }}>
+                                {remaining < 0 ? remaining : '—'}
+                              </span>
                             )}
                             {isOver && <div style={{ fontSize: 11, color: 'var(--vb-red)', fontWeight: 600 }}>Over stock!</div>}
                           </td>

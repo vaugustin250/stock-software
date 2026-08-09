@@ -1,8 +1,10 @@
 import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '../lib/api';
 import {
   ShoppingCart, CheckSquare, IndianRupee, BarChart2,
   ClipboardList, Box, Truck, Calculator, Package, Settings, Users,
-  AlertCircle, Clock, TrendingUp, Warehouse,
+  AlertCircle, Clock, TrendingUp, Warehouse, Building2
 } from 'lucide-react';
 
 const getGreeting = () => {
@@ -64,6 +66,17 @@ const Dashboard = () => {
   const greeting = getGreeting();
   const today = new Date().toLocaleDateString('en-IN', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+  });
+  
+  const isHeadOffice = role === 'WAREHOUSE' || role === 'ADMIN';
+
+  const { data: summary, isLoading: isLoadingSummary } = useQuery({
+    queryKey: ['dashboard-summary'],
+    queryFn: async () => {
+      const res = await api.get('/reports/dashboard-summary');
+      return res.data;
+    },
+    enabled: isHeadOffice
   });
 
   const branchTiles = [
@@ -266,10 +279,128 @@ const Dashboard = () => {
         </div>
       </div>
 
+      {/* --- WAREHOUSE / ADMIN Analytics Dashboard --- */}
+      {isHeadOffice && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24, animation: 'fadeIn 0.5s ease' }}>
+          
+          {/* Summary KPI Cards */}
+          <div>
+            <h2 style={{ margin: '0 0 12px 0', fontSize: 16, fontWeight: 700, color: 'var(--vb-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Today's Overview
+            </h2>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+              gap: 12,
+            }}>
+              <div className="vb-card" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: 8, borderTop: '4px solid var(--vb-blue)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--vb-muted)' }}>
+                  <ClipboardList size={18} />
+                  <span style={{ fontSize: 13, fontWeight: 600 }}>Branch Orders</span>
+                </div>
+                {isLoadingSummary ? <div className="vb-skeleton" style={{ height: 28, width: 40 }} /> : (
+                  <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--vb-text)' }}>
+                    {summary?.branches_ordered || 0}
+                  </div>
+                )}
+              </div>
+              <div className="vb-card" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: 8, borderTop: '4px solid var(--vb-amber)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--vb-muted)' }}>
+                  <Truck size={18} />
+                  <span style={{ fontSize: 13, fontWeight: 600 }}>Sent</span>
+                </div>
+                {isLoadingSummary ? <div className="vb-skeleton" style={{ height: 28, width: 40 }} /> : (
+                  <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--vb-text)' }}>
+                    {summary?.items_sent || 0} <span style={{ fontSize: 14, color: 'var(--vb-muted)' }}>dispatches</span>
+                  </div>
+                )}
+              </div>
+              <div className="vb-card" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: 8, borderTop: '4px solid var(--vb-green)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--vb-muted)' }}>
+                  <Box size={18} />
+                  <span style={{ fontSize: 13, fontWeight: 600 }}>Purchased</span>
+                </div>
+                {isLoadingSummary ? <div className="vb-skeleton" style={{ height: 28, width: 40 }} /> : (
+                  <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--vb-text)' }}>
+                    {summary?.purchased_today || 0} <span style={{ fontSize: 14, color: 'var(--vb-muted)' }}>items</span>
+                  </div>
+                )}
+              </div>
+              <div className="vb-card" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: 8, borderTop: '4px solid var(--vb-red)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--vb-muted)' }}>
+                  <AlertCircle size={18} />
+                  <span style={{ fontSize: 13, fontWeight: 600 }}>Short Items</span>
+                </div>
+                {isLoadingSummary ? <div className="vb-skeleton" style={{ height: 28, width: 40 }} /> : (
+                  <div style={{ fontSize: 24, fontWeight: 800, color: (summary?.short_products?.length > 0) ? 'var(--vb-red-dark)' : 'var(--vb-green-dark)' }}>
+                    {summary?.short_products?.length || 0}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Short items alert list */}
+          {summary?.short_products?.length > 0 && (
+            <div className="vb-card" style={{ border: '1px solid var(--vb-red)', overflow: 'hidden' }}>
+              <div style={{ background: 'var(--vb-red-pale)', padding: '12px 16px', borderBottom: '1px solid var(--vb-red)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <AlertCircle size={18} style={{ color: 'var(--vb-red)' }} />
+                <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--vb-red-dark)' }}>Action Required: Short Stock</h3>
+              </div>
+              <div style={{ padding: 12, maxHeight: 180, overflowY: 'auto' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {summary.short_products.map((p: any) => (
+                    <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: '#f8fafc', borderRadius: 8 }}>
+                      <span style={{ fontWeight: 600, fontSize: 14 }}>{p.name}</span>
+                      <span style={{ fontSize: 13, color: 'var(--vb-red)', fontWeight: 600 }}>Ordered: {p.ordered} | Bal: {p.stock_balance}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Branch Status Horizontal List */}
+          <div>
+            <h2 style={{ margin: '0 0 12px 0', fontSize: 16, fontWeight: 700, color: 'var(--vb-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', justifyContent: 'space-between' }}>
+              <span>Branch Status</span>
+              {summary && <span style={{ fontSize: 12, textTransform: 'none' }}>{summary.branches_not_ordered} waiting</span>}
+            </h2>
+            <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 8, scrollbarWidth: 'thin' }}>
+              {isLoadingSummary ? (
+                [1,2,3].map(i => <div key={i} className="vb-skeleton" style={{ height: 100, minWidth: 200, flexShrink: 0, borderRadius: 12 }} />)
+              ) : (
+                summary?.branch_status?.map((b: any) => (
+                  <div key={b.id} className="vb-card" style={{ padding: '16px', minWidth: 200, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 15 }}>
+                      <Building2 size={16} style={{ color: 'var(--vb-muted)' }} />
+                      {b.code}
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 13, fontWeight: 500 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span>Order Placed</span>
+                        {b.has_ordered ? <span style={{ color: 'var(--vb-green-dark)' }}>✓ Yes</span> : <span style={{ color: 'var(--vb-muted)' }}>— Waiting</span>}
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span>Stock Sent</span>
+                        {b.has_sent ? <span style={{ color: 'var(--vb-green-dark)' }}>✓ Yes</span> : <span style={{ color: 'var(--vb-muted)' }}>— Waiting</span>}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+          
+          <hr style={{ border: 'none', borderBottom: '1px solid var(--vb-border)', margin: '8px 0' }} />
+
+        </div>
+      )}
+
       {/* Section title */}
       <div>
         <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--vb-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-          {role === 'BRANCH' ? 'What do you want to do?' : 'Head Office Dashboard'}
+          {role === 'BRANCH' ? 'What do you want to do?' : 'Quick Actions'}
         </h2>
       </div>
 

@@ -28,10 +28,15 @@ router.get('/entry', requireRole(['BRANCH', 'ADMIN', 'WAREHOUSE']), async (req, 
 });
 
 // POST /po/entry - Upsert today's PO for the branch
-router.post('/entry', requireRole(['BRANCH']), async (req, res) => {
+router.post('/entry', requireRole(['BRANCH', 'WAREHOUSE', 'ADMIN']), async (req, res) => {
   const trx = await db.transaction();
   try {
-    const { branch_id } = req.user;
+    const branch_id = req.user.role === 'BRANCH' ? req.user.branch_id : req.body.branch_id;
+    if (!branch_id) {
+      await trx.rollback();
+      return res.status(400).json({ error: 'Branch ID required' });
+    }
+
     const entry_date = new Date().toISOString().split('T')[0];
     const { lines } = req.body; // Array of { product_id, unit_id, qty }
 

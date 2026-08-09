@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
-import { Calendar, Search, X, Filter } from 'lucide-react';
+import { Calendar, Search, X, Filter, Building2 } from 'lucide-react';
 import { useIsMobile } from '../hooks/useIsMobile';
 
 // Shared toast hook
@@ -15,18 +15,34 @@ function useToast() {
 }
 
 const PoEntry = () => {
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const role = user.role || 'BRANCH';
+  const isHeadOffice = role === 'WAREHOUSE' || role === 'ADMIN';
+
+  const [selectedBranchId, setSelectedBranchId] = useState<number | ''>('');
   const [selectedGroupId, setSelectedGroupId] = useState<number | ''>('');
   const [searchTerm, setSearchTerm] = useState('');
   const [poLines, setPoLines] = useState<Record<number, number>>({});
   const [poUnits, setPoUnits] = useState<Record<number, number>>({});
   const [showSuccess, setShowSuccess] = useState(false);
   const [showEnteredOnly, setShowEnteredOnly] = useState(false);
+  
   const inputRefs = useRef<Record<number, HTMLInputElement | null>>({});
   const queryClient = useQueryClient();
   const { toast, show: showToast } = useToast();
   const isMobile = useIsMobile();
 
   const today = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  const entryDateIso = new Date().toISOString().split('T')[0];
+
+  const { data: branches, isError: branchesError } = useQuery({
+    queryKey: ['branches_po'],
+    queryFn: async () => {
+      const res = await api.get('/masters/branches');
+      return res.data.filter((b: any) => b.type === 'BRANCH');
+    },
+    enabled: isHeadOffice
+  });
 
   const { data: groups, isError: groupsError } = useQuery({
     queryKey: ['groups'],
@@ -49,12 +65,15 @@ const PoEntry = () => {
     queryFn: async () => (await api.get('/masters/units')).data
   });
 
-  const { data: todayPo } = useQuery({
-    queryKey: ['po_entry', new Date().toISOString().split('T')[0]],
+  const { data: todayPo, isLoading: isPoLoading } = useQuery({
+    queryKey: ['po_entry', entryDateIso, selectedBranchId],
     queryFn: async () => {
-      const res = await api.get('/po/entry');
+      if (isHeadOffice && !selectedBranchId) return { lines: [] };
+      const url = isHeadOffice ? `/po/entry?branch_id=${selectedBranchId}` : '/po/entry';
+      const res = await api.get(url);
       return res.data;
     },
+    enabled: !isHeadOffice || !!selectedBranchId
   });
 
   useEffect(() => {
@@ -67,12 +86,17 @@ const PoEntry = () => {
       });
       setPoLines(initQty);
       setPoUnits(initUnit);
+    } else if (isHeadOffice && !selectedBranchId) {
+      setPoLines({});
+      setPoUnits({});
     }
-  }, [todayPo]);
+  }, [todayPo, selectedBranchId, isHeadOffice]);
 
   const savePoMutation = useMutation({
     mutationFn: async (lines: any[]) => {
-      await api.post('/po/entry', { lines });
+      const payload: any = { lines };
+      if (isHeadOffice) payload.branch_id = selectedBranchId;
+      await api.post('/po/entry', payload);
     },
     onSuccess: () => {
       setShowSuccess(true);
@@ -96,6 +120,11 @@ const PoEntry = () => {
   };
 
   const handleSave = () => {
+    if (isHeadOffice && !selectedBranchId) {
+      showToast('Please select a branch first.', 'error');
+      return;
+    }
+
     const linesToSave = Object.entries(poLines)
       .map(([pid, qty]) => {
         const numPid = parseInt(pid);
@@ -166,9 +195,9 @@ const PoEntry = () => {
         </div>
       </div>
 
-      {(groupsError || productsError) && (
+      {(groupsError || productsError || branchesError) && (
         <div className="vb-error-banner">
-          ⚠ Could not load products or categories. Please check your connection and refresh.
+          ⚠ Could not load required data. Please check your connection and refresh.
         </div>
       )}
 
@@ -179,170 +208,149 @@ const PoEntry = () => {
         </div>
       )}
 
-      {/* Filter + table card */}
-      <div className="vb-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-
-        {/* Search + Category */}
-        <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--vb-border)', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', backgroundColor: '#f8fafc' }}>
-          <div style={{ position: 'relative', flex: 1, minWidth: 180 }}>
-            <div style={{ position: 'absolute', top: 12, left: 14, color: '#64748b' }}>
-              <Search size={18} />
-            </div>
-            <input
-              type="text"
-              className="pos-input"
-              style={{ paddingLeft: 40, paddingRight: 36, height: 44 }}
-              placeholder="Search item / பொருள் தேடு..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-            {searchTerm && (
-              <button
-                onClick={() => setSearchTerm('')}
-                style={{ position: 'absolute', top: 12, right: 12, color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }}
-              >
-                <X size={18} />
-              </button>
-            )}
-          </div>
-
-          <div style={{ position: 'relative', minWidth: 150, flex: isMobile ? '1 1 100%' : '0 0 200px' }}>
-            <select
-              className="pos-input"
-              style={{ borderColor: '#cbd5e1', color: '#334155', height: 44 }}
-              value={selectedGroupId}
-              onChange={e => setSelectedGroupId(e.target.value === '' ? '' : parseInt(e.target.value))}
-            >
-              <option value="">— All Categories —</option>
-              {groups?.map((g: any) => (
-                <option key={g.id} value={g.id}>{g.name}</option>
-              ))}
-            </select>
-          </div>
+      {/* Branch Selector for WAREHOUSE / ADMIN */}
+      {isHeadOffice && (
+        <div className="vb-card" style={{ padding: '16px', marginBottom: '16px' }}>
+          <label className="vb-label">Select Branch to Order For</label>
+          <select
+            className="vb-select"
+            value={selectedBranchId}
+            onChange={e => {
+              setSelectedBranchId(e.target.value === '' ? '' : parseInt(e.target.value));
+              setPoLines({});
+            }}
+          >
+            <option value="">— Select Branch —</option>
+            {branches?.map((b: any) => (
+              <option key={b.id} value={b.id}>{b.code} — {b.name}</option>
+            ))}
+          </select>
         </div>
+      )}
 
-        {/* Toolbar: count + entered-only toggle */}
-        <div className="vb-entry-toolbar">
-          <span style={{ fontSize: 13, color: 'var(--vb-muted)', fontWeight: 500 }}>
-            {filteredProducts.length} items shown
-          </span>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            {enteredCount > 0 && (
-              <span className="vb-badge vb-badge-green" style={{ fontSize: 12, padding: '4px 10px' }}>
-                ✓ {enteredCount} entered
-              </span>
-            )}
-            {enteredCount > 0 && (
-              <button
-                className={`vb-toggle-btn${showEnteredOnly ? ' active' : ''}`}
-                onClick={() => setShowEnteredOnly(v => !v)}
+      {isHeadOffice && !selectedBranchId ? (
+         <div className="vb-card" style={{ padding: '64px 32px', textAlign: 'center', flex: 1 }}>
+           <Building2 size={48} style={{ color: 'var(--vb-muted)', marginBottom: 16 }} />
+           <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--vb-muted)' }}>
+             Select a branch to enter their order
+           </div>
+         </div>
+      ) : (
+        <div className="vb-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          {/* Search + Category */}
+          <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--vb-border)', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', backgroundColor: '#f8fafc' }}>
+            <div style={{ position: 'relative', flex: 1, minWidth: 180 }}>
+              <div style={{ position: 'absolute', top: 12, left: 14, color: '#64748b' }}>
+                <Search size={18} />
+              </div>
+              <input
+                type="text"
+                className="pos-input"
+                style={{ paddingLeft: 40, paddingRight: 36, height: 44 }}
+                placeholder="Search item / பொருள் தேடு..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+              {searchTerm && (
+                <button
+                  onClick={() => setSearchTerm('')}
+                  style={{ position: 'absolute', top: 12, right: 12, color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }}
+                >
+                  <X size={18} />
+                </button>
+              )}
+            </div>
+
+            <div style={{ position: 'relative', minWidth: 150, flex: isMobile ? '1 1 100%' : '0 0 200px' }}>
+              <select
+                className="pos-input"
+                style={{ borderColor: '#cbd5e1', color: '#334155', height: 44 }}
+                value={selectedGroupId}
+                onChange={e => setSelectedGroupId(e.target.value === '' ? '' : parseInt(e.target.value))}
               >
-                <Filter size={13} />
-                {showEnteredOnly ? 'Show All' : 'Review entered'}
-              </button>
-            )}
+                <option value="">— All Categories —</option>
+                {groups?.map((g: any) => (
+                  <option key={g.id} value={g.id}>{g.name}</option>
+                ))}
+              </select>
+            </div>
           </div>
-        </div>
 
-        {/* Product List */}
-        <div style={{ flex: 1, overflowY: 'auto' }}>
-          {isLoadingProducts ? (
-            <div style={{ padding: 32 }}>
-              {[1, 2, 3, 4].map(i => (
-                <div key={i} className="vb-skeleton" style={{ height: 56, marginBottom: 8 }} />
-              ))}
+          {/* Toolbar: count + entered-only toggle */}
+          <div className="vb-entry-toolbar">
+            <span style={{ fontSize: 13, color: 'var(--vb-muted)', fontWeight: 500 }}>
+              {filteredProducts.length} items shown
+            </span>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              {enteredCount > 0 && (
+                <span className="vb-badge vb-badge-green" style={{ fontSize: 12, padding: '4px 10px' }}>
+                  ✓ {enteredCount} entered
+                </span>
+              )}
+              {enteredCount > 0 && (
+                <button
+                  className={`vb-toggle-btn${showEnteredOnly ? ' active' : ''}`}
+                  onClick={() => setShowEnteredOnly(v => !v)}
+                >
+                  <Filter size={13} />
+                  {showEnteredOnly ? 'Show All' : 'Review entered'}
+                </button>
+              )}
             </div>
-          ) : isMobile ? (
-            /* ── Mobile Card Layout ── */
-            <div className="vb-mobile-list">
-              {filteredProducts.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '48px 16px', color: 'var(--vb-muted)' }}>
-                  No products found.
-                </div>
-              ) : filteredProducts.map((product: any, index: number) => {
-                const qty = poLines[product.id] || 0;
-                const hasQty = qty > 0;
-                return (
-                  <div
-                    key={product.id}
-                    className={`vb-mobile-card${hasQty ? ' has-qty' : ''}`}
-                  >
-                    <div className="vb-mobile-card-name">
-                      {product.name_tamil || product.name}
-                    </div>
-                    {product.name_tamil && (
-                      <span className="vb-mobile-card-name-en">{product.name}</span>
-                    )}
+          </div>
 
-                    <div className="vb-mobile-card-inputs">
-                      <div className="vb-mobile-qty-wrap">
-                        <span className="vb-mobile-qty-label">Quantity / அளவு</span>
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          inputMode="decimal"
-                          enterKeyHint="next"
-                          ref={(el) => { inputRefs.current[product.id] = el; }}
-                          value={qty || ''}
-                          onChange={e => handleQtyChange(product.id, e.target.value)}
-                          onKeyDown={e => handleKeyDown(e, index, filteredProducts)}
-                          disabled={isLocked}
-                          className="vb-mobile-qty-input"
-                          placeholder="0"
-                        />
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                        <span className="vb-mobile-qty-label">Unit</span>
-                        <select
-                          className="vb-mobile-unit-select"
-                          value={poUnits[product.id] || product.default_unit_id || 1}
-                          onChange={(e) => setPoUnits(prev => ({ ...prev, [product.id]: parseInt(e.target.value) }))}
-                          disabled={isLocked}
-                        >
-                          {units?.map((u: any) => (
-                            <option key={u.id} value={u.id}>{u.code}</option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            /* ── Desktop Table Layout ── */
-            <table className="vb-table">
-              <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
-                <tr>
-                  <th>Item</th>
-                  <th style={{ textAlign: 'center', width: 80 }}>Unit</th>
-                  <th style={{ textAlign: 'right', width: 160 }}>Quantity</th>
-                </tr>
-              </thead>
-              <tbody>
+          {/* Product List */}
+          <div style={{ flex: 1, overflowY: 'auto' }}>
+            {isLoadingProducts || isPoLoading ? (
+              <div style={{ padding: 32 }}>
+                {[1, 2, 3, 4].map(i => (
+                  <div key={i} className="vb-skeleton" style={{ height: 56, marginBottom: 8 }} />
+                ))}
+              </div>
+            ) : isMobile ? (
+              /* ── Mobile Card Layout ── */
+              <div className="vb-mobile-list">
                 {filteredProducts.length === 0 ? (
-                  <tr>
-                    <td colSpan={3} style={{ textAlign: 'center', padding: '48px 16px', color: 'var(--vb-muted)' }}>
-                      No products in this category.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredProducts.map((product: any, index: number) => {
-                    const qty = poLines[product.id];
-                    const hasQty = qty && qty > 0;
-                    return (
-                      <tr key={product.id} style={{ background: hasQty ? 'var(--vb-green-pale)' : undefined }}>
-                        <td>
-                          <span className="vb-product-name-ta">{product.name_tamil || product.name}</span>
-                          {product.name_tamil && (
-                            <span className="vb-product-name-en">{product.name}</span>
-                          )}
-                        </td>
-                        <td style={{ textAlign: 'center' }}>
+                  <div style={{ textAlign: 'center', padding: '48px 16px', color: 'var(--vb-muted)' }}>
+                    No products found.
+                  </div>
+                ) : filteredProducts.map((product: any, index: number) => {
+                  const qty = poLines[product.id] || 0;
+                  const hasQty = qty > 0;
+                  return (
+                    <div
+                      key={product.id}
+                      className={`vb-mobile-card${hasQty ? ' has-qty' : ''}`}
+                    >
+                      <div className="vb-mobile-card-name">
+                        {product.name_tamil || product.name}
+                      </div>
+                      {product.name_tamil && (
+                        <span className="vb-mobile-card-name-en">{product.name}</span>
+                      )}
+
+                      <div className="vb-mobile-card-inputs">
+                        <div className="vb-mobile-qty-wrap">
+                          <span className="vb-mobile-qty-label">Quantity / அளவு</span>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            inputMode="decimal"
+                            enterKeyHint="next"
+                            ref={(el) => { inputRefs.current[product.id] = el; }}
+                            value={qty || ''}
+                            onChange={e => handleQtyChange(product.id, e.target.value)}
+                            onKeyDown={e => handleKeyDown(e, index, filteredProducts)}
+                            disabled={isLocked}
+                            className="vb-mobile-qty-input"
+                            placeholder="0"
+                          />
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          <span className="vb-mobile-qty-label">Unit</span>
                           <select
-                            className="vb-select"
-                            style={{ width: 80, padding: '4px 8px', fontSize: 13, height: 32 }}
+                            className="vb-mobile-unit-select"
                             value={poUnits[product.id] || product.default_unit_id || 1}
                             onChange={(e) => setPoUnits(prev => ({ ...prev, [product.id]: parseInt(e.target.value) }))}
                             disabled={isLocked}
@@ -351,38 +359,86 @@ const PoEntry = () => {
                               <option key={u.id} value={u.id}>{u.code}</option>
                             ))}
                           </select>
-                        </td>
-                        <td style={{ textAlign: 'right' }}>
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            inputMode="decimal"
-                            ref={(el): void => { inputRefs.current[product.id] = el; }}
-                            value={qty || ''}
-                            onChange={e => handleQtyChange(product.id, e.target.value)}
-                            onKeyDown={e => handleKeyDown(e, index, filteredProducts)}
-                            disabled={isLocked}
-                            className="vb-qty-input"
-                            style={{ width: 130 }}
-                            placeholder="0"
-                          />
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              /* ── Desktop Table Layout ── */
+              <table className="vb-table">
+                <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
+                  <tr>
+                    <th>Item</th>
+                    <th style={{ textAlign: 'center', width: 80 }}>Unit</th>
+                    <th style={{ textAlign: 'right', width: 160 }}>Quantity</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredProducts.length === 0 ? (
+                    <tr>
+                      <td colSpan={3} style={{ textAlign: 'center', padding: '48px 16px', color: 'var(--vb-muted)' }}>
+                        No products in this category.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredProducts.map((product: any, index: number) => {
+                      const qty = poLines[product.id];
+                      const hasQty = qty && qty > 0;
+                      return (
+                        <tr key={product.id} style={{ background: hasQty ? 'var(--vb-green-pale)' : undefined }}>
+                          <td>
+                            <span className="vb-product-name-ta">{product.name_tamil || product.name}</span>
+                            {product.name_tamil && (
+                              <span className="vb-product-name-en">{product.name}</span>
+                            )}
+                          </td>
+                          <td style={{ textAlign: 'center' }}>
+                            <select
+                              className="vb-select"
+                              style={{ width: 80, padding: '4px 8px', fontSize: 13, height: 32 }}
+                              value={poUnits[product.id] || product.default_unit_id || 1}
+                              onChange={(e) => setPoUnits(prev => ({ ...prev, [product.id]: parseInt(e.target.value) }))}
+                              disabled={isLocked}
+                            >
+                              {units?.map((u: any) => (
+                                <option key={u.id} value={u.id}>{u.code}</option>
+                              ))}
+                            </select>
+                          </td>
+                          <td style={{ textAlign: 'right' }}>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              inputMode="decimal"
+                              ref={(el): void => { inputRefs.current[product.id] = el; }}
+                              value={qty || ''}
+                              onChange={e => handleQtyChange(product.id, e.target.value)}
+                              onKeyDown={e => handleKeyDown(e, index, filteredProducts)}
+                              disabled={isLocked}
+                              className="vb-qty-input"
+                              style={{ width: 130 }}
+                              placeholder="0"
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Sticky Save */}
       <div className="vb-sticky-action">
         <button
           onClick={handleSave}
-          disabled={savePoMutation.isPending || isLocked}
+          disabled={savePoMutation.isPending || isLocked || (isHeadOffice && !selectedBranchId)}
           className="vb-btn vb-btn-save"
           style={{ width: '100%' }}
         >

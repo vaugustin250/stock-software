@@ -2,10 +2,12 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { Download, Calendar } from 'lucide-react';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 const PoCombinedReport = () => {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedBranchId, setSelectedBranchId] = useState<number | ''>('');
+  const isMobile = useIsMobile();
 
   const { data: report, isLoading, isError, refetch } = useQuery({
     queryKey: ['po_combined', date],
@@ -14,6 +16,10 @@ const PoCombinedReport = () => {
       return res.data;
     }
   });
+
+  const displayData = selectedBranchId === '' 
+    ? report?.data 
+    : report?.data?.filter((row: any) => (row[`branch_${selectedBranchId}`] || 0) > 0);
 
   return (
     <div className="vb-page">
@@ -24,31 +30,36 @@ const PoCombinedReport = () => {
           <h1 className="vb-page-title">All Branch Orders</h1>
           <p className="vb-page-sub">Combined PO summary across all branches</p>
         </div>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+      </div>
+
+      <div className="vb-entry-toolbar" style={{ borderBottom: 'none', borderTop: '1px solid var(--vb-border)', padding: '12px 16px', background: 'var(--vb-card)' }}>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', width: '100%' }}>
           <select 
              className="vb-select"
              value={selectedBranchId}
              onChange={e => setSelectedBranchId(e.target.value === '' ? '' : parseInt(e.target.value))}
-             style={{ height: 40 }}
+             style={{ height: 40, flex: isMobile ? '1 1 100%' : '1 1 200px' }}
           >
              <option value="">All Branches</option>
              {report?.columns?.map((c: any) => (
                 <option key={c.id} value={c.id}>{c.code}</option>
              ))}
           </select>
-          <div style={{ position: 'relative' }}>
+          <div style={{ position: 'relative', flex: isMobile ? '1 1 100%' : '0 0 auto' }}>
             <Calendar size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--vb-muted)' }} />
             <input
               type="date"
               value={date}
               onChange={e => setDate(e.target.value)}
               className="vb-input"
-              style={{ paddingLeft: 32, height: 40, fontSize: 14 }}
+              style={{ paddingLeft: 32, height: 40, fontSize: 14, width: '100%' }}
             />
           </div>
-          <button className="vb-btn vb-btn-outline-blue vb-btn-sm">
-            <Download size={14} /> Excel
-          </button>
+          {!isMobile && (
+            <button className="vb-btn vb-btn-outline-blue vb-btn-sm" style={{ height: 40, whiteSpace: 'nowrap' }}>
+              <Download size={14} /> Excel
+            </button>
+          )}
         </div>
       </div>
 
@@ -59,14 +70,63 @@ const PoCombinedReport = () => {
         </div>
       )}
 
-      {/* Table */}
-      <div className="vb-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {/* Data Container */}
+      <div className={isMobile ? "" : "vb-card"} style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div style={{ flex: 1, overflow: 'auto' }}>
           {isLoading ? (
             <div style={{ padding: 32 }}>
               {[1,2,3].map(i => <div key={i} className="vb-skeleton" style={{ height: 56, marginBottom: 8 }} />)}
             </div>
+          ) : isMobile ? (
+            /* ── Mobile Layout ── */
+            <div className="vb-mobile-list" style={{ padding: '0 0 16px 0' }}>
+              {!displayData?.length ? (
+                <div style={{ textAlign: 'center', padding: '48px 16px', color: 'var(--vb-muted)' }}>
+                  No POs found for this date.
+                </div>
+              ) : (
+                displayData.map((row: any) => {
+                  const total = selectedBranchId === '' ? row.total : (row[`branch_${selectedBranchId}`] || 0);
+                  
+                  return (
+                    <div key={row.product_id} className="vb-mobile-card has-required">
+                      <div className="vb-mobile-card-name" style={{ marginBottom: 8 }}>
+                        {row.product_name}
+                      </div>
+                      
+                      {selectedBranchId === '' ? (
+                        <div className="vb-mobile-card-chips" style={{ marginBottom: 12 }}>
+                           {report.columns.map((col: any) => {
+                             const val = row[`branch_${col.id}`];
+                             if (!val) return null;
+                             return (
+                               <span key={col.id} className="vb-chip vb-chip-blue" style={{ background: '#f0f7ff', border: '1px solid #bfdbfe' }}>
+                                 {col.code}: {val}
+                               </span>
+                             );
+                           })}
+                        </div>
+                      ) : null}
+
+                      <div style={{ 
+                        display: 'flex', 
+                        justifyContent: 'space-between', 
+                        alignItems: 'center',
+                        background: 'var(--vb-blue-pale)',
+                        padding: '8px 12px',
+                        borderRadius: 8,
+                        marginTop: 4
+                      }}>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--vb-blue)' }}>TOTAL</span>
+                        <span style={{ fontSize: 18, fontWeight: 800, color: 'var(--vb-blue)' }}>{total}</span>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
           ) : (
+            /* ── Desktop Layout (Pivot Table) ── */
             <table className="vb-table" style={{ minWidth: 600 }}>
               <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
                 <tr>
@@ -78,22 +138,14 @@ const PoCombinedReport = () => {
                 </tr>
               </thead>
               <tbody>
-                {(() => {
-                  const displayData = selectedBranchId === '' 
-                    ? report?.data 
-                    : report?.data?.filter((row: any) => (row[`branch_${selectedBranchId}`] || 0) > 0);
-
-                  if (!displayData?.length) {
-                    return (
-                      <tr>
-                        <td colSpan={10} style={{ textAlign: 'center', padding: '48px 16px', color: 'var(--vb-muted)' }}>
-                          No POs found for this date.
-                        </td>
-                      </tr>
-                    );
-                  }
-
-                  return displayData.map((row: any) => (
+                {(!displayData?.length) ? (
+                  <tr>
+                    <td colSpan={10} style={{ textAlign: 'center', padding: '48px 16px', color: 'var(--vb-muted)' }}>
+                      No POs found for this date.
+                    </td>
+                  </tr>
+                ) : (
+                  displayData.map((row: any) => (
                     <tr key={row.product_id}>
                       <td className="sticky-col" style={{
                         fontWeight: 700, fontSize: 15,
@@ -117,8 +169,8 @@ const PoCombinedReport = () => {
                         {selectedBranchId === '' ? row.total : (row[`branch_${selectedBranchId}`] || 0)}
                       </td>
                     </tr>
-                  ));
-                })()}
+                  ))
+                )}
               </tbody>
             </table>
           )}

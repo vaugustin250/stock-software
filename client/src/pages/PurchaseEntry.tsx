@@ -14,7 +14,7 @@ function useToast() {
 
 const PurchaseEntry = () => {
   const [selectedGroupId, setSelectedGroupId] = useState<number | ''>('');
-  const [purchaseLines, setPurchaseLines] = useState<Record<number, { qty: number; rate: number }>>({});
+  const [purchaseLines, setPurchaseLines] = useState<Record<number, { qty: number; rate: number; unit_id?: number }>>({});
   const [showSuccess, setShowSuccess] = useState(false);
   const inputRefs = useRef<Record<number, { qty: HTMLInputElement | null; rate: HTMLInputElement | null }>>({});
   const queryClient = useQueryClient();
@@ -38,6 +38,11 @@ const PurchaseEntry = () => {
     }
   });
 
+  const { data: units } = useQuery({
+    queryKey: ['units'],
+    queryFn: async () => (await api.get('/masters/units')).data
+  });
+
   const { data: todayPurchase } = useQuery({
     queryKey: ['purchase_entry', new Date().toISOString().split('T')[0]],
     queryFn: async () => {
@@ -56,9 +61,9 @@ const PurchaseEntry = () => {
 
   useEffect(() => {
     if ((todayPurchase as any)?.lines) {
-      const init: Record<number, { qty: number; rate: number }> = {};
+      const init: Record<number, { qty: number; rate: number; unit_id?: number }> = {};
       ((todayPurchase as any).lines as any[]).forEach((l: any) => {
-        init[l.product_id] = { qty: l.qty_purchased, rate: l.rate };
+        init[l.product_id] = { qty: l.qty_purchased, rate: l.rate, unit_id: l.unit_id };
       });
       setPurchaseLines(init);
     }
@@ -84,6 +89,13 @@ const PurchaseEntry = () => {
     }));
   };
 
+  const handleUnitChange = (pid: number, unit_id: number) => {
+    setPurchaseLines(prev => ({
+      ...prev,
+      [pid]: { ...(prev[pid] || { qty: 0, rate: 0 }), unit_id }
+    }));
+  };
+
   const handleKeyDown = (
     e: React.KeyboardEvent<HTMLInputElement>,
     pid: number, field: 'qty' | 'rate', idx: number, list: any[]
@@ -103,7 +115,7 @@ const PurchaseEntry = () => {
     const lines = Object.entries(purchaseLines)
       .map(([pid, data]) => ({
         product_id: parseInt(pid),
-        unit_id: products?.find((p: any) => p.id === parseInt(pid))?.default_unit_id || 1,
+        unit_id: data.unit_id || products?.find((p: any) => p.id === parseInt(pid))?.default_unit_id || 1,
         qty_purchased: data.qty,
         rate: data.rate,
       }))
@@ -219,7 +231,16 @@ const PurchaseEntry = () => {
                         {product.name_tamil && <span className="vb-product-name-en">{product.name}</span>}
                       </td>
                       <td style={{ textAlign: 'center' }}>
-                        <span className="vb-badge vb-badge-grey">{product.unit_name || 'KG'}</span>
+                        <select
+                          className="vb-select"
+                          style={{ width: 80, padding: '4px 8px', fontSize: 13, height: 32 }}
+                          value={line?.unit_id || product.default_unit_id || 1}
+                          onChange={(e) => handleUnitChange(product.id, parseInt(e.target.value))}
+                        >
+                          {units?.map((u: any) => (
+                            <option key={u.id} value={u.id}>{u.code}</option>
+                          ))}
+                        </select>
                       </td>
                       <td style={{ textAlign: 'right', fontWeight: 800, fontSize: 15, color: 'var(--vb-blue)' }}>
                         {reqQty > 0 ? reqQty : '—'}

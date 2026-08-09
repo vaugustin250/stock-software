@@ -1,9 +1,0 @@
-user name: RPCGodown
-password: godown
-
-username: RPC1
-password: branch
-
-username: RPC2
-password: branch
-

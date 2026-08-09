@@ -16,6 +16,7 @@ const TransferEntry = () => {
   const [selectedBranchId, setSelectedBranchId] = useState<number | ''>('');
   const [selectedGroupId, setSelectedGroupId] = useState<number | ''>('');
   const [transferLines, setTransferLines] = useState<Record<number, number>>({});
+  const [transferUnits, setTransferUnits] = useState<Record<number, number>>({});
   const [showSuccess, setShowSuccess] = useState(false);
   const inputRefs = useRef<Record<number, HTMLInputElement | null>>({});
   const queryClient = useQueryClient();
@@ -30,6 +31,7 @@ const TransferEntry = () => {
   });
 
   const { data: groups } = useQuery({ queryKey: ['groups'] as const });
+  const { data: units } = useQuery({ queryKey: ['units'], queryFn: async () => (await api.get('/masters/units')).data });
 
   const { data: products, isLoading, isError: productsError } = useQuery({
     queryKey: ['products_with_stock'],
@@ -63,11 +65,17 @@ const TransferEntry = () => {
 
   useEffect(() => {
     if (existingTransfer?.lines?.length) {
-      const init: Record<number, number> = {};
-      existingTransfer.lines.forEach((l: any) => (init[l.product_id] = l.qty_sent));
-      setTransferLines(init);
+      const initQty: Record<number, number> = {};
+      const initUnit: Record<number, number> = {};
+      existingTransfer.lines.forEach((l: any) => {
+        initQty[l.product_id] = l.qty_sent;
+        initUnit[l.product_id] = l.unit_id;
+      });
+      setTransferLines(initQty);
+      setTransferUnits(initUnit);
     } else if (selectedBranchId) {
       setTransferLines({});
+      setTransferUnits({});
     }
   }, [existingTransfer, selectedBranchId]);
 
@@ -98,11 +106,14 @@ const TransferEntry = () => {
 
   const handleSave = () => {
     const lines = Object.entries(transferLines)
-      .map(([pid, qty]) => ({
-        product_id: parseInt(pid),
-        unit_id: products?.find((p: any) => p.id === parseInt(pid))?.default_unit_id || 1,
-        qty_sent: qty,
-      }))
+      .map(([pid, qty]) => {
+        const numPid = parseInt(pid);
+        return {
+          product_id: numPid,
+          unit_id: transferUnits[numPid] || products?.find((p: any) => p.id === numPid)?.default_unit_id || 1,
+          qty_sent: qty,
+        };
+      })
       .filter(l => l.qty_sent > 0);
     if (lines.length === 0) { showToast('Please enter at least one quantity.', 'error'); return; }
     saveMutation.mutate(lines);
@@ -244,7 +255,16 @@ const TransferEntry = () => {
                             {product.name_tamil && <span className="vb-product-name-en">{product.name}</span>}
                           </td>
                           <td style={{ textAlign: 'center' }}>
-                            <span className="vb-badge vb-badge-grey">{product.unit_name || 'KG'}</span>
+                            <select
+                              className="vb-select"
+                              style={{ width: 80, padding: '4px 8px', fontSize: 13, height: 32 }}
+                              value={transferUnits[product.id] || product.default_unit_id || 1}
+                              onChange={(e) => setTransferUnits(prev => ({ ...prev, [product.id]: parseInt(e.target.value) }))}
+                            >
+                              {units?.map((u: any) => (
+                                <option key={u.id} value={u.id}>{u.code}</option>
+                              ))}
+                            </select>
                           </td>
                           <td style={{ textAlign: 'right', fontWeight: 700, fontSize: 15, color: 'var(--vb-muted)' }}>
                             {product.stock_balance > 0 ? product.stock_balance : '0'}

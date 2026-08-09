@@ -17,6 +17,7 @@ const PoEntry = () => {
   const [selectedGroupId, setSelectedGroupId] = useState<number | ''>('');
   const [searchTerm, setSearchTerm] = useState('');
   const [poLines, setPoLines] = useState<Record<number, number>>({});
+  const [poUnits, setPoUnits] = useState<Record<number, number>>({});
   const [showSuccess, setShowSuccess] = useState(false);
   const inputRefs = useRef<Record<number, HTMLInputElement | null>>({});
   const queryClient = useQueryClient();
@@ -40,6 +41,11 @@ const PoEntry = () => {
     }
   });
 
+  const { data: units } = useQuery({
+    queryKey: ['units'],
+    queryFn: async () => (await api.get('/masters/units')).data
+  });
+
   const { data: todayPo } = useQuery({
     queryKey: ['po_entry', new Date().toISOString().split('T')[0]],
     queryFn: async () => {
@@ -50,9 +56,14 @@ const PoEntry = () => {
 
   useEffect(() => {
     if (todayPo?.lines) {
-      const init: Record<number, number> = {};
-      (todayPo.lines as any[]).forEach((l: any) => (init[l.product_id] = l.qty));
-      setPoLines(init);
+      const initQty: Record<number, number> = {};
+      const initUnit: Record<number, number> = {};
+      (todayPo.lines as any[]).forEach((l: any) => {
+        initQty[l.product_id] = l.qty;
+        initUnit[l.product_id] = l.unit_id;
+      });
+      setPoLines(initQty);
+      setPoUnits(initUnit);
     }
   }, [todayPo]);
 
@@ -83,11 +94,14 @@ const PoEntry = () => {
 
   const handleSave = () => {
     const linesToSave = Object.entries(poLines)
-      .map(([pid, qty]) => ({
-        product_id: parseInt(pid),
-        unit_id: products?.find((p: any) => p.id === parseInt(pid))?.default_unit_id || 1,
-        qty,
-      }))
+      .map(([pid, qty]) => {
+        const numPid = parseInt(pid);
+        return {
+          product_id: numPid,
+          unit_id: poUnits[numPid] || products?.find((p: any) => p.id === numPid)?.default_unit_id || 1,
+          qty,
+        };
+      })
       .filter(l => l.qty > 0);
 
     if (linesToSave.length === 0) {
@@ -247,7 +261,17 @@ const PoEntry = () => {
                           )}
                         </td>
                         <td style={{ textAlign: 'center' }}>
-                          <span className="vb-badge vb-badge-grey">{product.unit_name || 'KG'}</span>
+                          <select
+                            className="vb-select"
+                            style={{ width: 80, padding: '4px 8px', fontSize: 13, height: 32 }}
+                            value={poUnits[product.id] || product.default_unit_id || 1}
+                            onChange={(e) => setPoUnits(prev => ({ ...prev, [product.id]: parseInt(e.target.value) }))}
+                            disabled={isLocked}
+                          >
+                            {units?.map((u: any) => (
+                              <option key={u.id} value={u.id}>{u.code}</option>
+                            ))}
+                          </select>
                         </td>
                         <td style={{ textAlign: 'right' }}>
                           <input

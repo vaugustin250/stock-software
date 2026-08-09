@@ -24,7 +24,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   // Branch
   { name: 'Dashboard',       href: '/dashboard',           icon: Home,           roles: ['BRANCH', 'WAREHOUSE', 'ADMIN'], section: 'Home' },
-  { name: 'Today\'s Order',  href: '/po/entry',            icon: ShoppingCart,   roles: ['BRANCH', 'ADMIN'],              section: 'Branch' },
+  { name: 'Today\'s Order',  href: '/po/entry',            icon: ShoppingCart,   roles: ['BRANCH', 'WAREHOUSE', 'ADMIN'], section: 'Branch' },
   { name: 'Receive Stock',   href: '/inventory/receiving', icon: CheckSquare,    roles: ['BRANCH', 'ADMIN'],              section: 'Branch' },
   { name: 'Live Rates',      href: '/rates/view',          icon: IndianRupee,    roles: ['BRANCH', 'WAREHOUSE', 'ADMIN'], section: 'Branch' },
   // Warehouse

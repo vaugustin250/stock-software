@@ -128,13 +128,22 @@ const Dashboard = () => {
 
   const warehouseTiles = [
     {
+      title: 'Branch Order Entry',
+      sub: 'Place order for branches',
+      icon: ShoppingCart,
+      iconClass: 'vb-tile-icon-blue',
+      tileClass: 'vb-tile-blue',
+      href: '/po/entry',
+      delay: 0,
+    },
+    {
       title: 'Combined Orders',
       sub: 'All branch PO summary',
       icon: ClipboardList,
-      iconClass: 'vb-tile-icon-blue',
-      tileClass: 'vb-tile-blue',
+      iconClass: 'vb-tile-icon-amber',
+      tileClass: 'vb-tile-amber',
       href: '/po/combined-report',
-      delay: 0,
+      delay: 80,
     },
     {
       title: 'Purchase Entry',

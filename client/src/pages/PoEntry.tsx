@@ -182,15 +182,15 @@ const PoEntry = () => {
       )}
 
       {/* Header */}
-      <div className="vb-page-header">
-        <div>
-          <h1 className="vb-page-title">Today's Order</h1>
-          <p className="vb-page-sub" style={{ fontFamily: "'Noto Sans Tamil', sans-serif" }}>
+      <div className="vb-page-header" style={{ flexWrap: isMobile ? 'nowrap' : 'wrap', alignItems: 'center', marginBottom: isMobile ? 12 : 24 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <h1 className="vb-page-title" style={{ fontSize: isMobile ? 20 : 22, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Today's Order</h1>
+          <p className="vb-page-sub" style={{ fontFamily: "'Noto Sans Tamil', sans-serif", fontSize: isMobile ? 12 : 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             இன்றைய ஆர்டர் / Daily PO Entry
           </p>
         </div>
-        <div className="vb-date-chip">
-          <Calendar size={14} />
+        <div className="vb-date-chip" style={{ flexShrink: 0, padding: isMobile ? '4px 8px' : undefined, fontSize: isMobile ? 12 : undefined }}>
+          <Calendar size={isMobile ? 12 : 14} />
           {today}
         </div>
       </div>
@@ -210,11 +210,12 @@ const PoEntry = () => {
 
       {/* Branch Selector for WAREHOUSE / ADMIN */}
       {isHeadOffice && (
-        <div className="vb-card" style={{ padding: '16px', marginBottom: '16px' }}>
-          <label className="vb-label">Select Branch to Order For</label>
+        <div className="vb-card" style={{ padding: isMobile ? '12px' : '16px', marginBottom: isMobile ? '12px' : '16px' }}>
+          <label className="vb-label" style={{ fontSize: isMobile ? '11px' : '13px', marginBottom: isMobile ? '4px' : '8px' }}>Select Branch to Order For</label>
           <select
             className="vb-select"
             value={selectedBranchId}
+            style={{ height: isMobile ? 40 : 48, fontSize: isMobile ? 14 : 15 }}
             onChange={e => {
               setSelectedBranchId(e.target.value === '' ? '' : parseInt(e.target.value));
               setPoLines({});
@@ -238,33 +239,33 @@ const PoEntry = () => {
       ) : (
         <div className="vb-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           {/* Search + Category */}
-          <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--vb-border)', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', backgroundColor: '#f8fafc' }}>
-            <div style={{ position: 'relative', flex: 1, minWidth: 180 }}>
-              <div style={{ position: 'absolute', top: 12, left: 14, color: '#64748b' }}>
-                <Search size={18} />
+          <div style={{ padding: isMobile ? '8px 12px' : '12px 16px', borderBottom: '1px solid var(--vb-border)', display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 10, flexWrap: 'nowrap', backgroundColor: '#f8fafc' }}>
+            <div style={{ position: 'relative', flex: 1, minWidth: 50 }}>
+              <div style={{ position: 'absolute', top: isMobile ? 10 : 12, left: isMobile ? 10 : 14, color: '#64748b' }}>
+                <Search size={isMobile ? 16 : 18} />
               </div>
               <input
                 type="text"
                 className="pos-input"
-                style={{ paddingLeft: 40, paddingRight: 36, height: 44 }}
-                placeholder="Search item / பொருள் தேடு..."
+                style={{ paddingLeft: isMobile ? 32 : 40, paddingRight: 28, height: isMobile ? 36 : 44, fontSize: isMobile ? 13 : 15 }}
+                placeholder={isMobile ? "Search..." : "Search item / பொருள் தேடு..."}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
               {searchTerm && (
                 <button
                   onClick={() => setSearchTerm('')}
-                  style={{ position: 'absolute', top: 12, right: 12, color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }}
+                  style={{ position: 'absolute', top: isMobile ? 10 : 12, right: isMobile ? 8 : 12, color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
                 >
-                  <X size={18} />
+                  <X size={isMobile ? 16 : 18} />
                 </button>
               )}
             </div>
 
-            <div style={{ position: 'relative', minWidth: 150, flex: isMobile ? '1 1 100%' : '0 0 200px' }}>
+            <div style={{ position: 'relative', minWidth: isMobile ? 120 : 150, flexShrink: 0 }}>
               <select
                 className="pos-input"
-                style={{ borderColor: '#cbd5e1', color: '#334155', height: 44 }}
+                style={{ borderColor: '#cbd5e1', color: '#334155', height: isMobile ? 36 : 44, fontSize: isMobile ? 13 : 15, paddingLeft: isMobile ? 8 : 12 }}
                 value={selectedGroupId}
                 onChange={e => setSelectedGroupId(e.target.value === '' ? '' : parseInt(e.target.value))}
               >
@@ -277,23 +278,24 @@ const PoEntry = () => {
           </div>
 
           {/* Toolbar: count + entered-only toggle */}
-          <div className="vb-entry-toolbar">
-            <span style={{ fontSize: 13, color: 'var(--vb-muted)', fontWeight: 500 }}>
-              {filteredProducts.length} items shown
+          <div className="vb-entry-toolbar" style={{ padding: isMobile ? '8px 12px' : '12px 16px' }}>
+            <span style={{ fontSize: isMobile ? 12 : 13, color: 'var(--vb-muted)', fontWeight: 500 }}>
+              {filteredProducts.length} items
             </span>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               {enteredCount > 0 && (
-                <span className="vb-badge vb-badge-green" style={{ fontSize: 12, padding: '4px 10px' }}>
+                <span className="vb-badge vb-badge-green" style={{ fontSize: isMobile ? 11 : 12, padding: isMobile ? '2px 8px' : '4px 10px' }}>
                   ✓ {enteredCount} entered
                 </span>
               )}
               {enteredCount > 0 && (
                 <button
                   className={`vb-toggle-btn${showEnteredOnly ? ' active' : ''}`}
+                  style={{ height: isMobile ? 28 : 32, fontSize: isMobile ? 12 : 13, padding: isMobile ? '0 8px' : '0 12px' }}
                   onClick={() => setShowEnteredOnly(v => !v)}
                 >
-                  <Filter size={13} />
-                  {showEnteredOnly ? 'Show All' : 'Review entered'}
+                  <Filter size={isMobile ? 12 : 13} />
+                  {showEnteredOnly ? 'Show All' : 'Review'}
                 </button>
               )}
             </div>
@@ -435,16 +437,19 @@ const PoEntry = () => {
       )}
 
       {/* Sticky Save */}
-      <div className="vb-sticky-action">
+      <div className="vb-sticky-action" style={{ padding: isMobile ? '8px 0 0 0' : '16px 0 8px 0' }}>
         <button
           onClick={handleSave}
           disabled={savePoMutation.isPending || isLocked || (isHeadOffice && !selectedBranchId)}
           className="vb-btn vb-btn-save"
-          style={{ width: '100%' }}
+          style={{ width: '100%', height: isMobile ? 44 : 48 }}
         >
           {savePoMutation.isPending ? (
             <span style={{ width: 20, height: 20, border: '3px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite', display: 'inline-block' }} />
-          ) : <>✅ Save Order — ஆர்டர் சேமிக்கவும்</>}
+          ) : <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: isMobile ? 14 : 16 }}>
+                ✅ Save Order
+                {!isMobile && <span style={{ opacity: 0.8, fontSize: 14 }}>— ஆர்டர் சேமிக்கவும்</span>}
+              </span>}
         </button>
       </div>
     </div>

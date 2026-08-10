@@ -101,13 +101,60 @@ router.get('/history/:product_id', requireRole(['ADMIN', 'WAREHOUSE', 'BRANCH'])
 // GET /rates/weekly - Weekly pivot report
 router.get('/weekly', requireRole(['ADMIN', 'WAREHOUSE']), async (req, res) => {
   try {
-    // In a real system, we would generate a date range and pivot based on day of week
-    // For now we'll return a mock structure that the UI can consume
-    const mockData = [
-      { product_name: 'Tomato', mon: 40, tue: 42, wed: 42, thu: 45, fri: 44, sat: 40 },
-      { product_name: 'Onion', mon: 60, tue: 60, wed: 62, thu: 65, fri: 65, sat: 65 }
-    ];
-    res.json(mockData);
+    const dates = [];
+    const formattedDates = [];
+    
+    // Generate last 7 days (including today)
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const iso = d.toISOString().split('T')[0];
+      dates.push(iso);
+      
+      const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
+      // e.g., 'Mon', 'Tue'. Let's append the date so it looks nice: 'Mon 09'
+      const dateNum = d.getDate().toString().padStart(2, '0');
+      formattedDates.push(`${dayName} ${dateNum}`);
+    }
+    
+    // Fetch all active products
+    const products = await db('product').select('id', 'name').where('is_active', true);
+    
+    // Fetch rate changes
+    const rateChanges = await db('rate_change')
+      .where('created_at', '<=', `${dates[dates.length - 1]} 23:59:59`)
+      .orderBy('created_at', 'asc');
+      
+    const rates = products.map(p => {
+      const row = {
+        product_id: p.id,
+        product_name: p.name
+      };
+      
+      const pChanges = rateChanges.filter(rc => rc.product_id === p.id);
+      
+      // For each date, find the effective rate at the end of that day
+      dates.forEach(dateStr => {
+        // We compare the date string in the local time effectively.
+        const endOfDay = new Date(`${dateStr}T23:59:59`);
+        
+        let effectiveRate = null;
+        for (const rc of pChanges) {
+          if (new Date(rc.created_at) <= endOfDay) {
+            effectiveRate = parseFloat(rc.rate);
+          }
+        }
+        row[dateStr] = effectiveRate;
+      });
+      
+      return row;
+    });
+
+    res.json({
+      dates,
+      formattedDates,
+      rates
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

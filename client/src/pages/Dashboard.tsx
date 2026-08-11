@@ -4,7 +4,7 @@ import { api } from '../lib/api';
 import {
   ShoppingCart, CheckSquare, IndianRupee, BarChart2,
   ClipboardList, Box, Truck, Calculator, Package, Settings, Users,
-  AlertCircle, Clock, TrendingUp, Warehouse, Building2
+  AlertCircle, Clock, TrendingUp, Warehouse, Building2, Store
 } from 'lucide-react';
 
 const getGreeting = () => {
@@ -81,9 +81,9 @@ const Dashboard = () => {
 
   const branchTiles = [
     {
-      title: "Today's Order",
-      titleTa: 'இன்றைய ஆர்டர்',
-      sub: 'Enter your daily order',
+      title: "Closing Stock Entry",
+      titleTa: 'இன்றைய கையிருப்பு',
+      sub: 'Enter today closing stock',
       icon: ShoppingCart,
       iconClass: 'vb-tile-icon-blue',
       tileClass: 'vb-tile-blue',
@@ -128,8 +128,8 @@ const Dashboard = () => {
 
   const warehouseTiles = [
     {
-      title: 'Branch Order Entry',
-      sub: 'Place order for branches',
+      title: 'Branch Closing Stock',
+      sub: 'Enter stock for branches',
       icon: ShoppingCart,
       iconClass: 'vb-tile-icon-blue',
       tileClass: 'vb-tile-blue',
@@ -137,8 +137,8 @@ const Dashboard = () => {
       delay: 0,
     },
     {
-      title: 'Combined Orders',
-      sub: 'All branch PO summary',
+      title: 'Closing Stock Report',
+      sub: 'All branch stock summary',
       icon: ClipboardList,
       iconClass: 'vb-tile-icon-amber',
       tileClass: 'vb-tile-amber',
@@ -219,6 +219,15 @@ const Dashboard = () => {
       tileClass: 'vb-tile-amber',
       href: '/masters/users',
       delay: 160,
+    },
+    {
+      title: 'Suppliers',
+      sub: 'Hall & shop numbers',
+      icon: Store,
+      iconClass: 'vb-tile-icon-blue',
+      tileClass: 'vb-tile-blue',
+      href: '/masters/suppliers',
+      delay: 200,
     },
     {
       title: 'Settings',

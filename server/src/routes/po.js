@@ -85,38 +85,72 @@ router.get('/combined-report', requireRole(['ADMIN', 'WAREHOUSE']), async (req, 
     // Get all branches that submitted a PO today
     const pos = await db('po_entry')
       .join('branch', 'po_entry.branch_id', 'branch.id')
-      .select('po_entry.id', 'branch.id as branch_id', 'branch.code as branch_code')
+      .select(
+        'po_entry.id',
+        'branch.id as branch_id',
+        'branch.code as branch_code',
+        'branch.name as branch_name',
+        'branch.name_tamil as branch_name_tamil'
+      )
       .where({ entry_date });
 
     if (pos.length === 0) return res.json({ columns: [], data: [] });
 
     const poIds = pos.map(p => p.id);
 
-    // Fetch all lines
+    // Fetch all lines with unit info
     const lines = await db('po_entry_line')
       .join('po_entry', 'po_entry_line.po_entry_id', 'po_entry.id')
       .join('product', 'po_entry_line.product_id', 'product.id')
-      .select('po_entry.branch_id', 'product.id as product_id', 'product.name', 'po_entry_line.qty')
-      .whereIn('po_entry_id', poIds);
+      .leftJoin('unit', 'po_entry_line.unit_id', 'unit.id')
+      .select(
+        'po_entry.branch_id',
+        'product.id as product_id',
+        'product.name',
+        'product.name_tamil',
+        'product.sort_order',
+        'po_entry_line.qty',
+        'unit.code as unit_code'
+      )
+      .whereIn('po_entry_id', poIds)
+      .orderBy('product.sort_order');
 
     // Pivot the data: rows = product, columns = branch_id
     const pivot = {};
     lines.forEach(line => {
       if (!pivot[line.product_id]) {
-        pivot[line.product_id] = { product_id: line.product_id, product_name: line.name, total: 0 };
-        pos.forEach(p => pivot[line.product_id][`branch_${p.branch_id}`] = 0);
+        pivot[line.product_id] = {
+          product_id: line.product_id,
+          product_name: line.name,
+          product_name_tamil: line.name_tamil,
+          sort_order: line.sort_order || 0,
+          total: 0
+        };
+        pos.forEach(p => {
+          pivot[line.product_id][`branch_${p.branch_id}`] = null;
+          pivot[line.product_id][`unit_${p.branch_id}`] = null;
+        });
       }
       pivot[line.product_id][`branch_${line.branch_id}`] = parseFloat(line.qty);
+      pivot[line.product_id][`unit_${line.branch_id}`] = line.unit_code;
       pivot[line.product_id].total += parseFloat(line.qty);
     });
 
+    const sortedData = Object.values(pivot).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+
     res.json({
-      columns: pos.map(p => ({ id: p.branch_id, code: p.branch_code })),
-      data: Object.values(pivot)
+      columns: pos.map(p => ({
+        id: p.branch_id,
+        code: p.branch_code,
+        name: p.branch_name,
+        name_tamil: p.branch_name_tamil
+      })),
+      data: sortedData
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
+
 
 module.exports = router;

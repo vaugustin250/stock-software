@@ -19,6 +19,7 @@ import RateView from './pages/RateView';
 import RateWeeklyReport from './pages/RateWeeklyReport';
 import GodownStockLedger from './pages/GodownStockLedger';
 import PurchaseVsOrdered from './pages/PurchaseVsOrdered';
+import SupplierMaster from './pages/SupplierMaster';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -71,6 +72,7 @@ function App() {
               <Route path="units" element={<UnitMaster />} />
               <Route path="branches" element={<BranchMaster />} />
               <Route path="users" element={<UserMaster />} />
+              <Route path="suppliers" element={<SupplierMaster />} />
             </Route>
           </Route>
         </Routes>

@@ -65,6 +65,62 @@ router.use('/groups', createCrudRouter('product_group'));
 router.use('/departments', createCrudRouter('department'));
 router.use('/units', createCrudRouter('unit'));
 
+// ── Supplier CRUD ─────────────────────────────────────────────────────────
+// Searchable by hall, shop_no, or name.  Only ADMIN/WAREHOUSE can write.
+
+router.get('/suppliers', async (req, res) => {
+  try {
+    const { q, hall, shop_no } = req.query;
+    let query = db('supplier').where({ is_active: true }).orderBy('hall').orderBy('shop_no');
+
+    if (hall) query = query.whereILike('hall', `${hall}%`);
+    if (shop_no) query = query.whereILike('shop_no', `${shop_no}%`);
+    if (q) {
+      query = query.where(function() {
+        this.whereILike('name', `%${q}%`)
+          .orWhereILike('name_tamil', `%${q}%`)
+          .orWhereILike('shop_no', `%${q}%`)
+          .orWhereILike('hall', `%${q}%`);
+      });
+    }
+
+    const data = await query;
+    res.json(data);
+  } catch (err) {
+    return handleDbError(err, res);
+  }
+});
+
+router.post('/suppliers', requireRole(['ADMIN', 'WAREHOUSE']), async (req, res) => {
+  try {
+    const [inserted] = await db('supplier').insert(req.body).returning('*');
+    res.json(inserted);
+  } catch (err) {
+    return handleDbError(err, res);
+  }
+});
+
+router.put('/suppliers/:id', requireRole(['ADMIN', 'WAREHOUSE']), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [updated] = await db('supplier').where({ id }).update(req.body).returning('*');
+    res.json(updated);
+  } catch (err) {
+    return handleDbError(err, res);
+  }
+});
+
+router.delete('/suppliers/:id', requireRole(['ADMIN', 'WAREHOUSE']), async (req, res) => {
+  try {
+    const { id } = req.params;
+    await db('supplier').where({ id }).update({ is_active: false }); // soft delete
+    res.json({ success: true });
+  } catch (err) {
+    return handleDbError(err, res);
+  }
+});
+
+
 // Custom CRUD for Godowns
 router.get('/godowns', requireRole(['ADMIN', 'WAREHOUSE']), async (req, res) => {
   try {

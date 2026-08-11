@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
-import { Info, Filter } from 'lucide-react';
+import { Info, Filter, Store, X } from 'lucide-react';
 import { useIsMobile } from '../hooks/useIsMobile';
 
 function useToast() {
@@ -18,6 +18,9 @@ const PurchaseEntry = () => {
   const [purchaseLines, setPurchaseLines] = useState<Record<number, { qty: number; rate: number; unit_id?: number }>>({});
   const [showSuccess, setShowSuccess] = useState(false);
   const [showEnteredOnly, setShowEnteredOnly] = useState(false);
+  const [supplierSearch, setSupplierSearch] = useState('');
+  const [selectedSupplier, setSelectedSupplier] = useState<any>(null);
+  const [showSupplierDropdown, setShowSupplierDropdown] = useState(false);
   const inputRefs = useRef<Record<number, { qty: HTMLInputElement | null; rate: HTMLInputElement | null }>>({});
   const queryClient = useQueryClient();
   const { toast, show: showToast } = useToast();
@@ -31,6 +34,16 @@ const PurchaseEntry = () => {
       const res = await api.get('/masters/groups');
       return res.data;
     }
+  });
+
+  const { data: supplierResults = [] } = useQuery({
+    queryKey: ['suppliers_search', supplierSearch],
+    queryFn: async () => {
+      if (!supplierSearch.trim()) return [];
+      const res = await api.get(`/masters/suppliers?q=${encodeURIComponent(supplierSearch)}`);
+      return res.data;
+    },
+    enabled: supplierSearch.trim().length > 0,
   });
 
   const { data: products, isLoading, isError: productsError } = useQuery({
@@ -74,7 +87,7 @@ const PurchaseEntry = () => {
 
   const saveMutation = useMutation({
     mutationFn: async (lines: any[]) => {
-      await api.post('/purchase/entry', { lines });
+      await api.post('/purchase/entry', { lines, supplier_id: selectedSupplier?.id || null });
     },
     onSuccess: () => {
       setShowSuccess(true);
@@ -182,6 +195,59 @@ const PurchaseEntry = () => {
           ⚠ Could not load products. Please check your connection and refresh.
         </div>
       )}
+
+      {/* Supplier Selector */}
+      <div className="vb-card" style={{ padding: '12px 16px', marginBottom: 12 }}>
+        <label className="vb-label" style={{ marginBottom: 6 }}>
+          <Store size={14} style={{ display: 'inline', marginRight: 5 }} />
+          Supplier (Hall & Shop No)
+        </label>
+        {selectedSupplier ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--vb-blue-pale)', borderRadius: 10, padding: '8px 14px' }}>
+            <div style={{ flex: 1 }}>
+              <span style={{ fontWeight: 700, color: 'var(--vb-blue)', marginRight: 8 }}>
+                Hall {selectedSupplier.hall} – {selectedSupplier.shop_no}
+              </span>
+              <span style={{ fontWeight: 600 }}>{selectedSupplier.name}</span>
+              {selectedSupplier.name_tamil && (
+                <span style={{ fontFamily: "'Noto Sans Tamil', sans-serif", fontSize: 12, color: 'var(--vb-muted)', marginLeft: 6 }}>
+                  {selectedSupplier.name_tamil}
+                </span>
+              )}
+            </div>
+            <button onClick={() => { setSelectedSupplier(null); setSupplierSearch(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444' }}>
+              <X size={16} />
+            </button>
+          </div>
+        ) : (
+          <div style={{ position: 'relative' }}>
+            <input
+              className="vb-input"
+              style={{ height: 42 }}
+              placeholder="Search Hall A 189 or supplier name…"
+              value={supplierSearch}
+              onChange={e => { setSupplierSearch(e.target.value); setShowSupplierDropdown(true); }}
+              onFocus={() => setShowSupplierDropdown(true)}
+              onBlur={() => setTimeout(() => setShowSupplierDropdown(false), 200)}
+            />
+            {showSupplierDropdown && (supplierResults as any[]).length > 0 && (
+              <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100, background: '#fff', border: '1px solid var(--vb-border)', borderRadius: 10, boxShadow: 'var(--vb-shadow-md)', maxHeight: 200, overflowY: 'auto', marginTop: 4 }}>
+                {(supplierResults as any[]).map((s: any) => (
+                  <div
+                    key={s.id}
+                    style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid var(--vb-border)' }}
+                    onMouseDown={() => { setSelectedSupplier(s); setSupplierSearch(''); setShowSupplierDropdown(false); }}
+                  >
+                    <span style={{ fontWeight: 700, color: 'var(--vb-blue)', marginRight: 8 }}>Hall {s.hall} – {s.shop_no}</span>
+                    <span style={{ fontWeight: 600 }}>{s.name}</span>
+                    {s.name_tamil && <span style={{ fontFamily: "'Noto Sans Tamil', sans-serif", fontSize: 11, color: 'var(--vb-muted)', marginLeft: 6 }}>{s.name_tamil}</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Info banner */}
       {combinedText && (

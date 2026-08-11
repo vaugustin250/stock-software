@@ -184,9 +184,9 @@ const PoEntry = () => {
       {/* Header */}
       <div className="vb-page-header" style={{ flexWrap: isMobile ? 'nowrap' : 'wrap', alignItems: 'center', marginBottom: isMobile ? 12 : 24 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <h1 className="vb-page-title" style={{ fontSize: isMobile ? 20 : 22, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Today's Order</h1>
+          <h1 className="vb-page-title" style={{ fontSize: isMobile ? 20 : 22, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Closing Stock Entry</h1>
           <p className="vb-page-sub" style={{ fontFamily: "'Noto Sans Tamil', sans-serif", fontSize: isMobile ? 12 : 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            இன்றைய ஆர்டர் / Daily PO Entry
+            இன்றைய கையிருப்பு / Today's Closing Stock
           </p>
         </div>
         <div className="vb-date-chip" style={{ flexShrink: 0, padding: isMobile ? '4px 8px' : undefined, fontSize: isMobile ? 12 : undefined }}>
@@ -447,8 +447,8 @@ const PoEntry = () => {
           {savePoMutation.isPending ? (
             <span style={{ width: 20, height: 20, border: '3px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite', display: 'inline-block' }} />
           ) : <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: isMobile ? 14 : 16 }}>
-                ✅ Save Order
-                {!isMobile && <span style={{ opacity: 0.8, fontSize: 14 }}>— ஆர்டர் சேமிக்கவும்</span>}
+                ✅ Save Closing Stock
+                {!isMobile && <span style={{ opacity: 0.8, fontSize: 14 }}>— கையிருப்பு சேமிக்கவும்</span>}
               </span>}
         </button>
       </div>

@@ -24,11 +24,11 @@ interface NavItem {
 const navItems: NavItem[] = [
   // Branch
   { name: 'Dashboard',       href: '/dashboard',           icon: Home,           roles: ['BRANCH', 'WAREHOUSE', 'ADMIN'], section: 'Home' },
-  { name: 'Today\'s Order',  href: '/po/entry',            icon: ShoppingCart,   roles: ['BRANCH', 'WAREHOUSE', 'ADMIN'], section: 'Branch' },
+  { name: 'Today Closing Stock', href: '/po/entry',        icon: ShoppingCart,   roles: ['BRANCH', 'WAREHOUSE', 'ADMIN'], section: 'Branch' },
   { name: 'Receive Stock',   href: '/inventory/receiving', icon: CheckSquare,    roles: ['BRANCH', 'ADMIN'],              section: 'Branch' },
   { name: 'Live Rates',      href: '/rates/view',          icon: IndianRupee,    roles: ['BRANCH', 'WAREHOUSE', 'ADMIN'], section: 'Branch' },
   // Warehouse
-  { name: 'Combined Orders', href: '/po/combined-report',  icon: ClipboardList,  roles: ['WAREHOUSE', 'ADMIN'],           section: 'Warehouse' },
+  { name: 'Closing Stock Report', href: '/po/combined-report', icon: ClipboardList, roles: ['WAREHOUSE', 'ADMIN'],       section: 'Warehouse' },
   { name: 'Purchase Entry',  href: '/inventory/purchase',  icon: Box,            roles: ['WAREHOUSE', 'ADMIN'],           section: 'Warehouse' },
   { name: 'Send Stock',      href: '/inventory/transfer',  icon: Truck,          roles: ['WAREHOUSE', 'ADMIN'],           section: 'Warehouse' },
   { name: 'Rate Master',     href: '/rates/master',        icon: IndianRupee,    roles: ['WAREHOUSE', 'ADMIN'],           section: 'Warehouse' },
@@ -45,18 +45,18 @@ const navItems: NavItem[] = [
 ];
 
 const branchBottomNav: NavItem[] = [
-  { name: 'Home',    href: '/dashboard',           icon: Home,         roles: ['BRANCH', 'ADMIN'] },
-  { name: 'Orders',  href: '/po/entry',            icon: ShoppingCart, roles: ['BRANCH', 'ADMIN'] },
-  { name: 'Receive', href: '/inventory/receiving', icon: CheckSquare,  roles: ['BRANCH', 'ADMIN'] },
+  { name: 'Home',          href: '/dashboard',           icon: Home,         roles: ['BRANCH', 'ADMIN'] },
+  { name: 'Closing Stock', href: '/po/entry',            icon: ShoppingCart, roles: ['BRANCH', 'ADMIN'] },
+  { name: 'Receive',       href: '/inventory/receiving', icon: CheckSquare,  roles: ['BRANCH', 'ADMIN'] },
   { name: 'Rates',   href: '/rates/view',          icon: IndianRupee,  roles: ['BRANCH', 'ADMIN'] },
 ];
 
 const warehouseBottomNav: NavItem[] = [
-  { name: 'Home',     href: '/dashboard',          icon: Home,         roles: ['WAREHOUSE', 'ADMIN'] },
-  { name: 'Purchase', href: '/inventory/purchase', icon: Box,          roles: ['WAREHOUSE', 'ADMIN'] },
-  { name: 'Send',     href: '/inventory/transfer', icon: Truck,        roles: ['WAREHOUSE', 'ADMIN'] },
-  { name: 'Orders',   href: '/po/combined-report', icon: ClipboardList,roles: ['WAREHOUSE', 'ADMIN'] },
-  { name: 'Rates',    href: '/rates/view',         icon: IndianRupee,  roles: ['WAREHOUSE', 'ADMIN'] },
+  { name: 'Home',          href: '/dashboard',          icon: Home,         roles: ['WAREHOUSE', 'ADMIN'] },
+  { name: 'Purchase',      href: '/inventory/purchase', icon: Box,          roles: ['WAREHOUSE', 'ADMIN'] },
+  { name: 'Send',          href: '/inventory/transfer', icon: Truck,        roles: ['WAREHOUSE', 'ADMIN'] },
+  { name: 'Closing Stock', href: '/po/combined-report', icon: ClipboardList,roles: ['WAREHOUSE', 'ADMIN'] },
+  { name: 'Rates',         href: '/rates/view',         icon: IndianRupee,  roles: ['WAREHOUSE', 'ADMIN'] },
 ];
 
 const Layout = () => {

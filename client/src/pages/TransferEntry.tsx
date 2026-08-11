@@ -18,9 +18,11 @@ const TransferEntry = () => {
   const [selectedGroupId, setSelectedGroupId] = useState<number | ''>('');
   const [transferLines, setTransferLines] = useState<Record<number, number>>({});
   const [transferUnits, setTransferUnits] = useState<Record<number, number>>({});
+  const [transferUnitQtys, setTransferUnitQtys] = useState<Record<number, number>>({});
   const [showSuccess, setShowSuccess] = useState(false);
   const [showEnteredOnly, setShowEnteredOnly] = useState(false);
   const inputRefs = useRef<Record<number, HTMLInputElement | null>>({});
+  const unitQtyRefs = useRef<Record<number, HTMLInputElement | null>>({});
   const queryClient = useQueryClient();
   const { toast, show: showToast } = useToast();
   const isMobile = useIsMobile();
@@ -68,15 +70,19 @@ const TransferEntry = () => {
     if (existingTransfer?.lines?.length) {
       const initQty: Record<number, number> = {};
       const initUnit: Record<number, number> = {};
+      const initUnitQty: Record<number, number> = {};
       existingTransfer.lines.forEach((l: any) => {
         initQty[l.product_id] = l.qty_sent;
         initUnit[l.product_id] = l.unit_id;
+        initUnitQty[l.product_id] = l.unit_qty;
       });
       setTransferLines(initQty);
       setTransferUnits(initUnit);
+      setTransferUnitQtys(initUnitQty);
     } else if (selectedBranchId) {
       setTransferLines({});
       setTransferUnits({});
+      setTransferUnitQtys({});
     }
   }, [existingTransfer, selectedBranchId]);
 
@@ -97,11 +103,23 @@ const TransferEntry = () => {
     setTransferLines(prev => ({ ...prev, [pid]: isNaN(qty) ? 0 : qty }));
   };
 
+  const handleUnitQtyChange = (pid: number, val: string) => {
+    const qty = parseFloat(val);
+    setTransferUnitQtys(prev => ({ ...prev, [pid]: isNaN(qty) ? 0 : qty }));
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, idx: number, list: any[]) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       const next = list[idx + 1];
-      if (next && inputRefs.current[next.id]) inputRefs.current[next.id]?.focus();
+      if (next && unitQtyRefs.current[next.id]) unitQtyRefs.current[next.id]?.focus();
+    }
+  };
+
+  const handleUnitQtyKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, productId: number) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      inputRefs.current[productId]?.focus();
     }
   };
 
@@ -113,9 +131,10 @@ const TransferEntry = () => {
           product_id: numPid,
           unit_id: transferUnits[numPid] || products?.find((p: any) => p.id === numPid)?.default_unit_id || 1,
           qty_sent: qty,
+          unit_qty: transferUnitQtys[numPid] || 0
         };
       })
-      .filter(l => l.qty_sent > 0);
+      .filter(l => l.qty_sent > 0 || l.unit_qty > 0);
     if (lines.length === 0) { showToast('Please enter at least one quantity.', 'error'); return; }
     saveMutation.mutate(lines);
   };
@@ -129,7 +148,7 @@ const TransferEntry = () => {
     .filter((p: any) => selectedGroupId === '' || p.group_id === selectedGroupId);
 
   const filteredProducts = showEnteredOnly
-    ? baseFiltered.filter((p: any) => (transferLines[p.id] || 0) > 0)
+    ? baseFiltered.filter((p: any) => (transferLines[p.id] || 0) > 0 || (transferUnitQtys[p.id] || 0) > 0)
     : baseFiltered;
 
   const overAllocated = filteredProducts.some((p: any) => {
@@ -137,7 +156,7 @@ const TransferEntry = () => {
     return p.stock_balance > 0 && sent > p.stock_balance;
   });
 
-  const enteredCount = Object.values(transferLines).filter(q => q > 0).length;
+  const enteredCount = Object.keys(transferLines).filter(id => transferLines[parseInt(id)] > 0 || transferUnitQtys[parseInt(id)] > 0).length;
   const selectedBranch = branches?.find((b: any) => b.id === selectedBranchId);
 
   return (
@@ -282,14 +301,14 @@ const TransferEntry = () => {
 
                         <div className="vb-mobile-card-inputs">
                           <div className="vb-mobile-qty-wrap">
-                            <span className="vb-mobile-qty-label">Send Qty</span>
+                            <span className="vb-mobile-qty-label">Unit Qty</span>
                             <input
-                              type="number" min="0" step="0.01" inputMode="decimal" enterKeyHint="next"
-                              ref={(el) => { inputRefs.current[product.id] = el; }}
-                              value={sentQty || ''}
-                              onChange={e => handleQtyChange(product.id, e.target.value)}
-                              onKeyDown={e => handleKeyDown(e, idx, filteredProducts)}
-                              className={`vb-mobile-qty-input${isOver ? ' shortage' : ''}`}
+                              type="number" min="0" step="0.1" inputMode="decimal" enterKeyHint="next"
+                              ref={(el) => { unitQtyRefs.current[product.id] = el; }}
+                              value={transferUnitQtys[product.id] || ''}
+                              onChange={e => handleUnitQtyChange(product.id, e.target.value)}
+                              onKeyDown={e => handleUnitQtyKeyDown(e, product.id)}
+                              className="vb-mobile-qty-input"
                               placeholder="0"
                             />
                           </div>
@@ -305,6 +324,18 @@ const TransferEntry = () => {
                               ))}
                             </select>
                           </div>
+                          <div className="vb-mobile-qty-wrap">
+                            <span className="vb-mobile-qty-label">Send Qty</span>
+                            <input
+                              type="number" min="0" step="0.01" inputMode="decimal" enterKeyHint="next"
+                              ref={(el) => { inputRefs.current[product.id] = el; }}
+                              value={sentQty || ''}
+                              onChange={e => handleQtyChange(product.id, e.target.value)}
+                              onKeyDown={e => handleKeyDown(e, idx, filteredProducts)}
+                              className={`vb-mobile-qty-input${isOver ? ' shortage' : ''}`}
+                              placeholder="0"
+                            />
+                          </div>
                         </div>
                       </div>
                     );
@@ -316,6 +347,7 @@ const TransferEntry = () => {
                   <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
                     <tr>
                       <th>Item</th>
+                      <th style={{ textAlign: 'right', width: 90 }}>Unit Qty</th>
                       <th style={{ textAlign: 'center', width: 80 }}>Unit</th>
                       <th style={{ textAlign: 'right', width: 100 }}>Available</th>
                       <th style={{ textAlign: 'right', width: 120 }}>Closing Stock</th>
@@ -325,6 +357,7 @@ const TransferEntry = () => {
                   <tbody>
                     {filteredProducts.map((product: any, idx: number) => {
                       const sentQty = transferLines[product.id] || 0;
+                      const unitQty = transferUnitQtys[product.id] || 0;
                       const closingStock = closingStockMap.get(product.id) || 0;
                       const isOver = product.stock_balance > 0 && sentQty > product.stock_balance;
                       const rowStyle = isOver ? 'var(--vb-red-pale)' : (sentQty > 0 ? 'var(--vb-green-pale)' : undefined);
@@ -334,6 +367,18 @@ const TransferEntry = () => {
                           <td>
                             <span className="vb-product-name-ta">{product.name_tamil || product.name}</span>
                             {product.name_tamil && <span className="vb-product-name-en">{product.name}</span>}
+                          </td>
+                          <td style={{ textAlign: 'right' }}>
+                            <input
+                              type="number" min="0" step="0.1" inputMode="decimal"
+                              ref={(el): void => { unitQtyRefs.current[product.id] = el; }}
+                              value={unitQty || ''}
+                              onChange={e => handleUnitQtyChange(product.id, e.target.value)}
+                              onKeyDown={e => handleUnitQtyKeyDown(e, product.id)}
+                              className="vb-qty-input"
+                              style={{ width: 90 }}
+                              placeholder="0"
+                            />
                           </td>
                           <td style={{ textAlign: 'center' }}>
                             <select

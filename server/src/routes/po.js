@@ -58,11 +58,12 @@ router.post('/entry', requireRole(['BRANCH', 'WAREHOUSE', 'ADMIN']), async (req,
     }
 
     if (lines && lines.length > 0) {
-      const linesToInsert = lines.filter(l => l.qty > 0).map(l => ({
+      const linesToInsert = lines.filter(l => l.qty > 0 || l.unit_qty > 0).map(l => ({
         po_entry_id: po.id,
         product_id: l.product_id,
         unit_id: l.unit_id,
-        qty: l.qty
+        qty: l.qty,
+        unit_qty: l.unit_qty || 0
       }));
       if (linesToInsert.length > 0) {
         await trx('po_entry_line').insert(linesToInsert);
@@ -106,10 +107,11 @@ router.get('/combined-report', requireRole(['ADMIN', 'WAREHOUSE']), async (req, 
       .select(
         'po_entry.branch_id',
         'product.id as product_id',
-        'product.name',
-        'product.name_tamil',
+        'product.name as product_name',
+        'product.name_tamil as product_name_tamil',
         'product.sort_order',
         'po_entry_line.qty',
+        'po_entry_line.unit_qty',
         'unit.code as unit_code'
       )
       .whereIn('po_entry_id', poIds)
@@ -121,19 +123,22 @@ router.get('/combined-report', requireRole(['ADMIN', 'WAREHOUSE']), async (req, 
       if (!pivot[line.product_id]) {
         pivot[line.product_id] = {
           product_id: line.product_id,
-          product_name: line.name,
-          product_name_tamil: line.name_tamil,
+          product_name: line.product_name,
+          product_name_tamil: line.product_name_tamil,
           sort_order: line.sort_order || 0,
-          total: 0
+          total: 0,
+          total_unit_qty: 0
         };
         pos.forEach(p => {
           pivot[line.product_id][`branch_${p.branch_id}`] = null;
-          pivot[line.product_id][`unit_${p.branch_id}`] = null;
+          pivot[line.product_id][`branch_${p.branch_id}_unit_qty`] = null;
+          pivot[line.product_id][`unit_${p.branch_id}`] = line.unit_code;
         });
       }
       pivot[line.product_id][`branch_${line.branch_id}`] = parseFloat(line.qty);
-      pivot[line.product_id][`unit_${line.branch_id}`] = line.unit_code;
+      pivot[line.product_id][`branch_${line.branch_id}_unit_qty`] = parseFloat(line.unit_qty || 0);
       pivot[line.product_id].total += parseFloat(line.qty);
+      pivot[line.product_id].total_unit_qty += parseFloat(line.unit_qty || 0);
     });
 
     const sortedData = Object.values(pivot).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));

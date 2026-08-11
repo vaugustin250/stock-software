@@ -51,11 +51,12 @@ router.post('/entry', requireRole(['ADMIN', 'WAREHOUSE']), async (req, res) => {
     }
 
     if (lines && lines.length > 0) {
-      const linesToInsert = lines.filter(l => l.qty_sent > 0).map(l => ({
+      const linesToInsert = lines.filter(l => l.qty_sent > 0 || l.unit_qty > 0).map(l => ({
         transfer_entry_id: transfer.id,
         product_id: l.product_id,
         unit_id: l.unit_id,
-        qty_sent: l.qty_sent
+        qty_sent: l.qty_sent,
+        unit_qty: l.unit_qty || 0
       }));
       
       if (linesToInsert.length > 0) {

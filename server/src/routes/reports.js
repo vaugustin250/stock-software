@@ -13,13 +13,13 @@ router.get('/stock-ledger', requireRole(['ADMIN', 'WAREHOUSE']), async (req, res
     // Get today's purchases
     const purchases = await db('purchase_entry')
       .join('purchase_entry_line as pel', 'purchase_entry.id', 'pel.purchase_entry_id')
-      .select('pel.product_id', 'pel.qty_purchased')
+      .select('pel.product_id', 'pel.qty_purchased', 'pel.unit_qty')
       .where('purchase_entry.entry_date', report_date);
 
     // Get today's transfers
     const transfers = await db('transfer_entry')
       .join('transfer_entry_line as tel', 'transfer_entry.id', 'tel.transfer_entry_id')
-      .select('tel.product_id', 'tel.qty_sent')
+      .select('tel.product_id', 'tel.qty_sent', 'tel.unit_qty')
       .where('transfer_entry.transfer_date', report_date);
 
     // Get all products
@@ -28,15 +28,20 @@ router.get('/stock-ledger', requireRole(['ADMIN', 'WAREHOUSE']), async (req, res
     // Aggregate
     const ledger = products.map(p => {
       const purchased = purchases.filter(x => x.product_id === p.id).reduce((sum, curr) => sum + parseFloat(curr.qty_purchased), 0);
+      const purchased_unit_qty = purchases.filter(x => x.product_id === p.id).reduce((sum, curr) => sum + parseFloat(curr.unit_qty || 0), 0);
       const transferred = transfers.filter(x => x.product_id === p.id).reduce((sum, curr) => sum + parseFloat(curr.qty_sent), 0);
+      const transferred_unit_qty = transfers.filter(x => x.product_id === p.id).reduce((sum, curr) => sum + parseFloat(curr.unit_qty || 0), 0);
       
       return {
         product_id: p.id,
         product_code: p.code,
         product_name: p.name,
         purchased,
+        purchased_unit_qty,
         transferred,
-        balance: purchased - transferred
+        transferred_unit_qty,
+        balance: purchased - transferred,
+        balance_unit_qty: purchased_unit_qty - transferred_unit_qty
       };
     });
 
@@ -54,13 +59,13 @@ router.get('/purchase-vs-ordered', requireRole(['ADMIN', 'WAREHOUSE', 'BRANCH'])
     // Get today's branch POs
     const pos = await db('po_entry')
       .join('po_entry_line as pel', 'po_entry.id', 'pel.po_entry_id')
-      .select('pel.product_id', 'pel.qty as qty_ordered')
+      .select('pel.product_id', 'pel.qty as qty_ordered', 'pel.unit_qty as unit_qty_ordered')
       .where('po_entry.entry_date', report_date);
 
     // Get today's purchases
     const purchases = await db('purchase_entry')
       .join('purchase_entry_line as pel', 'purchase_entry.id', 'pel.purchase_entry_id')
-      .select('pel.product_id', 'pel.qty_purchased')
+      .select('pel.product_id', 'pel.qty_purchased', 'pel.unit_qty as unit_qty_purchased')
       .where('purchase_entry.entry_date', report_date);
 
     // Get all products
@@ -69,15 +74,21 @@ router.get('/purchase-vs-ordered', requireRole(['ADMIN', 'WAREHOUSE', 'BRANCH'])
     // Aggregate
     const variance = products.map(p => {
       const ordered = pos.filter(x => x.product_id === p.id).reduce((sum, curr) => sum + parseFloat(curr.qty_ordered), 0);
+      const ordered_unit_qty = pos.filter(x => x.product_id === p.id).reduce((sum, curr) => sum + parseFloat(curr.unit_qty_ordered || 0), 0);
+      
       const purchased = purchases.filter(x => x.product_id === p.id).reduce((sum, curr) => sum + parseFloat(curr.qty_purchased), 0);
+      const purchased_unit_qty = purchases.filter(x => x.product_id === p.id).reduce((sum, curr) => sum + parseFloat(curr.unit_qty_purchased || 0), 0);
       
       return {
         product_id: p.id,
         product_code: p.code,
         product_name: p.name,
         ordered,
+        ordered_unit_qty,
         purchased,
-        variance: purchased - ordered
+        purchased_unit_qty,
+        variance: purchased - ordered,
+        variance_unit_qty: purchased_unit_qty - ordered_unit_qty
       };
     });
 

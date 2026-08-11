@@ -15,13 +15,13 @@ function useToast() {
 
 const PurchaseEntry = () => {
   const [selectedGroupId, setSelectedGroupId] = useState<number | ''>('');
-  const [purchaseLines, setPurchaseLines] = useState<Record<number, { qty: number; rate: number; unit_id?: number }>>({});
+  const [purchaseLines, setPurchaseLines] = useState<Record<number, { qty: number, rate: number, unit_id: number, unit_qty: number }>>({});
   const [showSuccess, setShowSuccess] = useState(false);
   const [showEnteredOnly, setShowEnteredOnly] = useState(false);
   const [supplierSearch, setSupplierSearch] = useState('');
   const [selectedSupplier, setSelectedSupplier] = useState<any>(null);
   const [showSupplierDropdown, setShowSupplierDropdown] = useState(false);
-  const inputRefs = useRef<Record<number, { qty: HTMLInputElement | null; rate: HTMLInputElement | null }>>({});
+  const inputRefs = useRef<Record<number, { qty: HTMLInputElement | null; rate: HTMLInputElement | null; unit_qty: HTMLInputElement | null }>>({});
   const queryClient = useQueryClient();
   const { toast, show: showToast } = useToast();
   const isMobile = useIsMobile();
@@ -77,9 +77,9 @@ const PurchaseEntry = () => {
 
   useEffect(() => {
     if ((todayPurchase as any)?.lines) {
-      const init: Record<number, { qty: number; rate: number; unit_id?: number }> = {};
+      const init: Record<number, { qty: number; rate: number; unit_id: number; unit_qty: number }> = {};
       ((todayPurchase as any).lines as any[]).forEach((l: any) => {
-        init[l.product_id] = { qty: l.qty_purchased, rate: l.rate, unit_id: l.unit_id };
+        init[l.product_id] = { qty: l.qty_purchased, rate: l.rate, unit_id: l.unit_id, unit_qty: l.unit_qty };
       });
       setPurchaseLines(init);
     }
@@ -97,32 +97,34 @@ const PurchaseEntry = () => {
     onError: () => showToast('Save failed. Please try again.', 'error'),
   });
 
-  const handleChange = (pid: number, field: 'qty' | 'rate', val: string) => {
+  const handleChange = (pid: number, field: 'qty' | 'rate' | 'unit_qty', val: string) => {
     const num = parseFloat(val);
     setPurchaseLines(prev => ({
       ...prev,
-      [pid]: { ...prev[pid], [field]: isNaN(num) ? 0 : num }
+      [pid]: { ...(prev[pid] || { qty: 0, rate: 0, unit_id: 1, unit_qty: 0 }), [field]: isNaN(num) ? 0 : num }
     }));
   };
 
   const handleUnitChange = (pid: number, unit_id: number) => {
     setPurchaseLines(prev => ({
       ...prev,
-      [pid]: { ...(prev[pid] || { qty: 0, rate: 0 }), unit_id }
+      [pid]: { ...(prev[pid] || { qty: 0, rate: 0, unit_qty: 0 }), unit_id }
     }));
   };
 
   const handleKeyDown = (
     e: React.KeyboardEvent<HTMLInputElement>,
-    pid: number, field: 'qty' | 'rate', idx: number, list: any[]
+    pid: number, field: 'qty' | 'rate' | 'unit_qty', idx: number, list: any[]
   ) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      if (field === 'qty') {
+      if (field === 'unit_qty') {
+        inputRefs.current[pid]?.qty?.focus();
+      } else if (field === 'qty') {
         inputRefs.current[pid]?.rate?.focus();
       } else {
         const next = list[idx + 1];
-        if (next) inputRefs.current[next.id]?.qty?.focus();
+        if (next) inputRefs.current[next.id]?.unit_qty?.focus();
       }
     }
   };
@@ -133,9 +135,10 @@ const PurchaseEntry = () => {
         product_id: parseInt(pid),
         unit_id: data.unit_id || products?.find((p: any) => p.id === parseInt(pid))?.default_unit_id || 1,
         qty_purchased: data.qty,
+        unit_qty: data.unit_qty,
         rate: data.rate,
       }))
-      .filter(l => l.qty_purchased > 0);
+      .filter(l => l.qty_purchased > 0 || l.unit_qty > 0);
     if (lines.length === 0) { showToast('Please enter at least one quantity.', 'error'); return; }
     saveMutation.mutate(lines);
   };
@@ -149,10 +152,10 @@ const PurchaseEntry = () => {
     .filter((p: any) => selectedGroupId === '' || p.group_id === selectedGroupId);
 
   const filteredProducts = showEnteredOnly
-    ? baseFiltered.filter((p: any) => (purchaseLines[p.id]?.qty || 0) > 0)
+    ? baseFiltered.filter((p: any) => (purchaseLines[p.id]?.qty || 0) > 0 || (purchaseLines[p.id]?.unit_qty || 0) > 0)
     : baseFiltered;
 
-  const enteredCount = Object.values(purchaseLines).filter(l => l.qty > 0).length;
+  const enteredCount = Object.values(purchaseLines).filter(l => l.qty > 0 || l.unit_qty > 0).length;
 
   const combinedTotal = (todayPurchase as any)?.combined_total;
   const combinedText = combinedTotal
@@ -302,7 +305,7 @@ const PurchaseEntry = () => {
                   No products found.
                 </div>
               ) : filteredProducts.map((product: any, idx: number) => {
-                if (!inputRefs.current[product.id]) inputRefs.current[product.id] = { qty: null, rate: null };
+                if (!inputRefs.current[product.id]) inputRefs.current[product.id] = { qty: null, rate: null, unit_qty: null };
                 const line = purchaseLines[product.id];
                 const hasQty = line?.qty && line.qty > 0;
                 const closingStock = requiredMap.get(product.id) || 0;
@@ -323,6 +326,29 @@ const PurchaseEntry = () => {
                       </div>
                     )}
                     <div className="vb-mobile-card-inputs">
+                      <div className="vb-mobile-qty-wrap">
+                        <span className="vb-mobile-qty-label">Unit Qty</span>
+                        <input
+                          type="number" min="0" step="0.1" inputMode="decimal" enterKeyHint="next"
+                          ref={(el): void => { inputRefs.current[product.id].unit_qty = el; }}
+                          value={line?.unit_qty || ''}
+                          onChange={e => handleChange(product.id, 'unit_qty', e.target.value)}
+                          onKeyDown={e => handleKeyDown(e, product.id, 'unit_qty', idx, filteredProducts)}
+                          className="vb-mobile-qty-input" placeholder="0"
+                        />
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        <span className="vb-mobile-qty-label">Unit</span>
+                        <select
+                          className="vb-mobile-unit-select"
+                          value={line?.unit_id || product.default_unit_id || 1}
+                          onChange={(e) => handleUnitChange(product.id, parseInt(e.target.value))}
+                        >
+                          {units?.map((u: any) => (
+                            <option key={u.id} value={u.id}>{u.code}</option>
+                          ))}
+                        </select>
+                      </div>
                       <div className="vb-mobile-qty-wrap">
                         <span className="vb-mobile-qty-label">Purchased Qty</span>
                         <input
@@ -346,18 +372,6 @@ const PurchaseEntry = () => {
                           style={{ fontSize: 18 }}
                         />
                       </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                        <span className="vb-mobile-qty-label">Unit</span>
-                        <select
-                          className="vb-mobile-unit-select"
-                          value={line?.unit_id || product.default_unit_id || 1}
-                          onChange={(e) => handleUnitChange(product.id, parseInt(e.target.value))}
-                        >
-                          {units?.map((u: any) => (
-                            <option key={u.id} value={u.id}>{u.code}</option>
-                          ))}
-                        </select>
-                      </div>
                     </div>
                   </div>
                 );
@@ -369,6 +383,7 @@ const PurchaseEntry = () => {
               <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
                 <tr>
                   <th>Item</th>
+                  <th style={{ textAlign: 'right', width: 90 }}>Unit Qty</th>
                   <th style={{ textAlign: 'center', width: 80 }}>Unit</th>
                   <th style={{ textAlign: 'right', width: 100 }}>Total Closing Stock</th>
                   <th style={{ textAlign: 'right', width: 150 }}>Purchased Qty</th>
@@ -377,7 +392,7 @@ const PurchaseEntry = () => {
               </thead>
               <tbody>
                 {filteredProducts.map((product: any, idx: number) => {
-                  if (!inputRefs.current[product.id]) inputRefs.current[product.id] = { qty: null, rate: null };
+                  if (!inputRefs.current[product.id]) inputRefs.current[product.id] = { qty: null, rate: null, unit_qty: null };
                   const line = purchaseLines[product.id];
                   const hasQty = line?.qty && line.qty > 0;
                   const closingStock = requiredMap.get(product.id) || 0;
@@ -388,6 +403,18 @@ const PurchaseEntry = () => {
                       <td>
                         <span className="vb-product-name-ta">{product.name_tamil || product.name}</span>
                         {product.name_tamil && <span className="vb-product-name-en">{product.name}</span>}
+                      </td>
+                      <td style={{ textAlign: 'right' }}>
+                        <input
+                          type="number" min="0" step="0.1" inputMode="decimal"
+                          ref={(el): void => { inputRefs.current[product.id].unit_qty = el; }}
+                          value={line?.unit_qty || ''}
+                          onChange={e => handleChange(product.id, 'unit_qty', e.target.value)}
+                          onKeyDown={e => handleKeyDown(e, product.id, 'unit_qty', idx, filteredProducts)}
+                          className="vb-qty-input"
+                          style={{ width: 90 }}
+                          placeholder="0"
+                        />
                       </td>
                       <td style={{ textAlign: 'center' }}>
                         <select

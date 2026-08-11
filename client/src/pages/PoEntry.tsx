@@ -24,10 +24,12 @@ const PoEntry = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [poLines, setPoLines] = useState<Record<number, number>>({});
   const [poUnits, setPoUnits] = useState<Record<number, number>>({});
+  const [poUnitQtys, setPoUnitQtys] = useState<Record<number, number>>({});
   const [showSuccess, setShowSuccess] = useState(false);
   const [showEnteredOnly, setShowEnteredOnly] = useState(false);
   
   const inputRefs = useRef<Record<number, HTMLInputElement | null>>({});
+  const unitQtyRefs = useRef<Record<number, HTMLInputElement | null>>({});
   const queryClient = useQueryClient();
   const { toast, show: showToast } = useToast();
   const isMobile = useIsMobile();
@@ -80,15 +82,19 @@ const PoEntry = () => {
     if (todayPo?.lines) {
       const initQty: Record<number, number> = {};
       const initUnit: Record<number, number> = {};
+      const initUnitQty: Record<number, number> = {};
       (todayPo.lines as any[]).forEach((l: any) => {
         initQty[l.product_id] = l.qty;
         initUnit[l.product_id] = l.unit_id;
+        initUnitQty[l.product_id] = l.unit_qty;
       });
       setPoLines(initQty);
       setPoUnits(initUnit);
+      setPoUnitQtys(initUnitQty);
     } else if (isHeadOffice && !selectedBranchId) {
       setPoLines({});
       setPoUnits({});
+      setPoUnitQtys({});
     }
   }, [todayPo, selectedBranchId, isHeadOffice]);
 
@@ -111,11 +117,23 @@ const PoEntry = () => {
     setPoLines(prev => ({ ...prev, [productId]: isNaN(qty) ? 0 : qty }));
   };
 
+  const handleUnitQtyChange = (productId: number, val: string) => {
+    const qty = parseFloat(val);
+    setPoUnitQtys(prev => ({ ...prev, [productId]: isNaN(qty) ? 0 : qty }));
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, idx: number, list: any[]) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       const next = list[idx + 1];
-      if (next && inputRefs.current[next.id]) inputRefs.current[next.id]?.focus();
+      if (next && unitQtyRefs.current[next.id]) unitQtyRefs.current[next.id]?.focus();
+    }
+  };
+
+  const handleUnitQtyKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, productId: number) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      inputRefs.current[productId]?.focus();
     }
   };
 
@@ -132,9 +150,10 @@ const PoEntry = () => {
           product_id: numPid,
           unit_id: poUnits[numPid] || products?.find((p: any) => p.id === numPid)?.default_unit_id || 1,
           qty,
+          unit_qty: poUnitQtys[numPid] || 0
         };
       })
-      .filter(l => l.qty > 0);
+      .filter(l => l.qty > 0 || l.unit_qty > 0);
 
     if (linesToSave.length === 0) {
       showToast('Please enter at least one quantity.', 'error');
@@ -154,10 +173,10 @@ const PoEntry = () => {
   }) || [];
 
   const filteredProducts = showEnteredOnly
-    ? baseFiltered.filter((p: any) => (poLines[p.id] || 0) > 0)
+    ? baseFiltered.filter((p: any) => (poLines[p.id] || 0) > 0 || (poUnitQtys[p.id] || 0) > 0)
     : baseFiltered;
 
-  const enteredCount = Object.values(poLines).filter(q => q > 0).length;
+  const enteredCount = Object.keys(poLines).filter(id => poLines[parseInt(id)] > 0 || poUnitQtys[parseInt(id)] > 0).length;
   const isLocked = (todayPo as any)?.status === 'LOCKED';
 
   return (
@@ -333,17 +352,17 @@ const PoEntry = () => {
 
                       <div className="vb-mobile-card-inputs">
                         <div className="vb-mobile-qty-wrap">
-                          <span className="vb-mobile-qty-label">Quantity / அளவு</span>
+                          <span className="vb-mobile-qty-label">Unit Qty</span>
                           <input
                             type="number"
                             min="0"
-                            step="0.01"
+                            step="0.1"
                             inputMode="decimal"
                             enterKeyHint="next"
-                            ref={(el) => { inputRefs.current[product.id] = el; }}
-                            value={qty || ''}
-                            onChange={e => handleQtyChange(product.id, e.target.value)}
-                            onKeyDown={e => handleKeyDown(e, index, filteredProducts)}
+                            ref={(el) => { unitQtyRefs.current[product.id] = el; }}
+                            value={poUnitQtys[product.id] || ''}
+                            onChange={e => handleUnitQtyChange(product.id, e.target.value)}
+                            onKeyDown={e => handleUnitQtyKeyDown(e, product.id)}
                             disabled={isLocked}
                             className="vb-mobile-qty-input"
                             placeholder="0"
@@ -362,6 +381,23 @@ const PoEntry = () => {
                             ))}
                           </select>
                         </div>
+                        <div className="vb-mobile-qty-wrap">
+                          <span className="vb-mobile-qty-label">Quantity / அளவு</span>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            inputMode="decimal"
+                            enterKeyHint="next"
+                            ref={(el) => { inputRefs.current[product.id] = el; }}
+                            value={qty || ''}
+                            onChange={e => handleQtyChange(product.id, e.target.value)}
+                            onKeyDown={e => handleKeyDown(e, index, filteredProducts)}
+                            disabled={isLocked}
+                            className="vb-mobile-qty-input"
+                            placeholder="0"
+                          />
+                        </div>
                       </div>
                     </div>
                   );
@@ -373,8 +409,9 @@ const PoEntry = () => {
                 <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
                   <tr>
                     <th>Item</th>
+                    <th style={{ textAlign: 'right', width: 90 }}>Unit Qty</th>
                     <th style={{ textAlign: 'center', width: 80 }}>Unit</th>
-                    <th style={{ textAlign: 'right', width: 160 }}>Quantity</th>
+                    <th style={{ textAlign: 'right', width: 130 }}>Quantity</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -395,6 +432,22 @@ const PoEntry = () => {
                             {product.name_tamil && (
                               <span className="vb-product-name-en">{product.name}</span>
                             )}
+                          </td>
+                          <td style={{ textAlign: 'right' }}>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.1"
+                              inputMode="decimal"
+                              ref={(el): void => { unitQtyRefs.current[product.id] = el; }}
+                              value={poUnitQtys[product.id] || ''}
+                              onChange={e => handleUnitQtyChange(product.id, e.target.value)}
+                              onKeyDown={e => handleUnitQtyKeyDown(e, product.id)}
+                              disabled={isLocked}
+                              className="vb-qty-input"
+                              style={{ width: 90 }}
+                              placeholder="0"
+                            />
                           </td>
                           <td style={{ textAlign: 'center' }}>
                             <select
@@ -421,7 +474,7 @@ const PoEntry = () => {
                               onKeyDown={e => handleKeyDown(e, index, filteredProducts)}
                               disabled={isLocked}
                               className="vb-qty-input"
-                              style={{ width: 130 }}
+                              style={{ width: 110 }}
                               placeholder="0"
                             />
                           </td>

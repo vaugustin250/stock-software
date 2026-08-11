@@ -16,8 +16,10 @@ function useToast() {
 const ReceivingConfirmation = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [receivingLines, setReceivingLines] = useState<Record<number, number>>({});
+  const [receivingUnitQtys, setReceivingUnitQtys] = useState<Record<number, number>>({});
   const [showSuccess, setShowSuccess] = useState(false);
   const inputRefs = useRef<Record<number, HTMLInputElement | null>>({});
+  const unitQtyRefs = useRef<Record<number, HTMLInputElement | null>>({});
   const queryClient = useQueryClient();
   const { toast, show: showToast } = useToast();
   const isMobile = useIsMobile();
@@ -33,10 +35,13 @@ const ReceivingConfirmation = () => {
   useEffect(() => {
     if (receivingData?.lines) {
       const init: Record<number, number> = {};
+      const initUnitQty: Record<number, number> = {};
       receivingData.lines.forEach((l: any) => {
         init[l.transfer_entry_line_id] = l.qty_received !== null ? l.qty_received : l.qty_sent;
+        initUnitQty[l.transfer_entry_line_id] = l.received_unit_qty !== null ? l.received_unit_qty : (l.sent_unit_qty || 0);
       });
       setReceivingLines(init);
+      setReceivingUnitQtys(initUnitQty);
     }
   }, [receivingData]);
 
@@ -60,13 +65,25 @@ const ReceivingConfirmation = () => {
     setReceivingLines(prev => ({ ...prev, [id]: isNaN(qty) ? 0 : qty }));
   };
 
+  const handleUnitQtyChange = (id: number, val: string) => {
+    const qty = parseFloat(val);
+    setReceivingUnitQtys(prev => ({ ...prev, [id]: isNaN(qty) ? 0 : qty }));
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, idx: number, lines: any[]) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       const next = lines[idx + 1];
-      if (next && inputRefs.current[next.transfer_entry_line_id]) {
-        inputRefs.current[next.transfer_entry_line_id]?.focus();
+      if (next && unitQtyRefs.current[next.transfer_entry_line_id]) {
+        unitQtyRefs.current[next.transfer_entry_line_id]?.focus();
       }
+    }
+  };
+
+  const handleUnitQtyKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, id: number) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      inputRefs.current[id]?.focus();
     }
   };
 
@@ -75,6 +92,7 @@ const ReceivingConfirmation = () => {
     const lines = Object.entries(receivingLines).map(([id, qty]) => ({
       transfer_entry_line_id: parseInt(id),
       qty_received: qty,
+      unit_qty: receivingUnitQtys[parseInt(id)] || 0
     }));
     saveMutation.mutate(lines);
   };
@@ -224,6 +242,17 @@ const ReceivingConfirmation = () => {
 
                         <div className="vb-mobile-card-inputs">
                           <div className="vb-mobile-qty-wrap">
+                            <span className="vb-mobile-qty-label">Unit Qty Received</span>
+                            <input
+                              type="number" min="0" step="0.1" inputMode="decimal" enterKeyHint="next"
+                              ref={(el) => { unitQtyRefs.current[line.transfer_entry_line_id] = el; }}
+                              value={receivingUnitQtys[line.transfer_entry_line_id] !== undefined ? receivingUnitQtys[line.transfer_entry_line_id] : ''}
+                              onChange={e => handleUnitQtyChange(line.transfer_entry_line_id, e.target.value)}
+                              onKeyDown={e => handleUnitQtyKeyDown(e, line.transfer_entry_line_id)}
+                              className="vb-mobile-qty-input"
+                            />
+                          </div>
+                          <div className="vb-mobile-qty-wrap">
                             <span className="vb-mobile-qty-label">You Received / பெற்றது</span>
                             <input
                               type="number" min="0" step="0.01" inputMode="decimal" enterKeyHint="next"
@@ -245,8 +274,9 @@ const ReceivingConfirmation = () => {
                   <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
                     <tr>
                       <th>Item / பொருள்</th>
+                      <th style={{ textAlign: 'right', width: 90 }}>Unit Qty</th>
                       <th style={{ textAlign: 'right', width: 110 }}>Sent</th>
-                      <th style={{ textAlign: 'right', width: 160 }}>You Received</th>
+                      <th style={{ textAlign: 'right', width: 140 }}>You Received</th>
                       <th style={{ textAlign: 'right', width: 110 }}>Difference</th>
                     </tr>
                   </thead>
@@ -263,6 +293,17 @@ const ReceivingConfirmation = () => {
                             {line.product_name_tamil && (
                               <span className="vb-product-name-en">{line.product_name}</span>
                             )}
+                          </td>
+                          <td style={{ textAlign: 'right' }}>
+                            <input
+                              type="number" min="0" step="0.1" inputMode="decimal"
+                              ref={(el): void => { unitQtyRefs.current[line.transfer_entry_line_id] = el; }}
+                              value={receivingUnitQtys[line.transfer_entry_line_id] !== undefined ? receivingUnitQtys[line.transfer_entry_line_id] : ''}
+                              onChange={e => handleUnitQtyChange(line.transfer_entry_line_id, e.target.value)}
+                              onKeyDown={e => handleUnitQtyKeyDown(e, line.transfer_entry_line_id)}
+                              className="vb-qty-input"
+                              style={{ width: 90 }}
+                            />
                           </td>
                           <td style={{ textAlign: 'right', fontWeight: 700, fontSize: 16 }}>
                             {line.qty_sent}

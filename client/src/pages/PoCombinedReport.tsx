@@ -171,7 +171,6 @@ const PoCombinedReport = () => {
                 </div>
               ) : (
                 displayData.map((row: any) => {
-                  const total = selectedBranchId === '' ? row.total : (row[`branch_${selectedBranchId}`] || 0);
                   return (
                     <div key={row.product_id} className="vb-mobile-card has-required">
                       <div className="vb-mobile-card-name">
@@ -185,11 +184,13 @@ const PoCombinedReport = () => {
                         <div className="vb-mobile-card-chips" style={{ marginBottom: 12 }}>
                           {report.columns.map((col: any) => {
                             const val = row[`branch_${col.id}`];
+                            const valUnitQty = row[`branch_${col.id}_unit_qty`];
                             const unit = row[`unit_${col.id}`];
-                            if (!val) return null;
+                            if (!val && !valUnitQty) return null;
+                            const displayVal = [valUnitQty ? formatQty(valUnitQty) : '', unit, val ? formatQty(val) : ''].filter(Boolean).join(' ');
                             return (
                               <span key={col.id} className="vb-chip vb-chip-blue" style={{ background: '#f0f7ff', border: '1px solid #bfdbfe' }}>
-                                {col.name || col.code}: {formatQty(val)} {unit || ''}
+                                {col.name || col.code}: {displayVal}
                               </span>
                             );
                           })}
@@ -201,7 +202,12 @@ const PoCombinedReport = () => {
                         background: 'var(--vb-blue-pale)', padding: '8px 12px', borderRadius: 8, marginTop: 4
                       }}>
                         <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--vb-blue)' }}>TOTAL</span>
-                        <span style={{ fontSize: 18, fontWeight: 800, color: 'var(--vb-blue)' }}>{formatQty(total, true)}</span>
+                        <span style={{ fontSize: 18, fontWeight: 800, color: 'var(--vb-blue)' }}>
+                          {[
+                            selectedBranchId === '' ? row.total_unit_qty : (row[`branch_${selectedBranchId}_unit_qty`] || 0),
+                            selectedBranchId === '' ? row.total : (row[`branch_${selectedBranchId}`] || 0)
+                          ].filter(v => v > 0).map(v => formatQty(v, true)).join(' / ') || '0'}
+                        </span>
                       </div>
                     </div>
                   );
@@ -225,7 +231,7 @@ const PoCombinedReport = () => {
                 <tr style={{ background: '#2563ab' }}>
                   <th style={{ position: 'sticky', left: 0, background: '#2563ab' }}></th>
                   {report?.columns?.filter((c: any) => selectedBranchId === '' || c.id === selectedBranchId).flatMap((col: any) => [
-                    <th key={`unit_${col.id}`} style={{ textAlign: 'center', fontSize: 11, fontWeight: 600, opacity: 0.85 }}>UNIT</th>,
+                    <th key={`unit_${col.id}`} style={{ textAlign: 'center', fontSize: 11, fontWeight: 600, opacity: 0.85 }}>UNIT QTY</th>,
                     <th key={`qty_${col.id}`} style={{ textAlign: 'right', fontSize: 11, fontWeight: 600, opacity: 0.85 }}>QTY</th>
                   ])}
                   <th></th>
@@ -252,10 +258,11 @@ const PoCombinedReport = () => {
                       </td>
                       {report.columns.filter((c: any) => selectedBranchId === '' || c.id === selectedBranchId).flatMap((col: any) => {
                         const val = row[`branch_${col.id}`];
+                        const valUnitQty = row[`branch_${col.id}_unit_qty`];
                         const unit = row[`unit_${col.id}`];
                         return [
                           <td key={`unit_${col.id}`} style={{ textAlign: 'center', fontSize: 12, fontWeight: 600, color: 'var(--vb-blue)' }}>
-                            {unit || <span style={{ color: 'var(--vb-muted)' }}>—</span>}
+                            {valUnitQty || unit ? `${valUnitQty ? formatQty(valUnitQty) : ''} ${unit || ''}`.trim() : <span style={{ color: 'var(--vb-muted)' }}>—</span>}
                           </td>,
                           <td key={`qty_${col.id}`} style={{ textAlign: 'right', fontSize: 15, fontWeight: 700 }}>
                             {val != null ? formatQty(val) : <span style={{ color: 'var(--vb-muted)' }}>—</span>}
@@ -267,7 +274,10 @@ const PoCombinedReport = () => {
                         color: 'var(--vb-blue)', background: 'var(--vb-blue-pale)',
                         borderLeft: '2px solid rgba(30,86,160,0.15)',
                       }}>
-                        {formatQty(selectedBranchId === '' ? row.total : (row[`branch_${selectedBranchId}`] || 0), true)}
+                        {[
+                          selectedBranchId === '' ? row.total_unit_qty : (row[`branch_${selectedBranchId}_unit_qty`] || 0),
+                          selectedBranchId === '' ? row.total : (row[`branch_${selectedBranchId}`] || 0)
+                        ].filter(v => v > 0).map(v => formatQty(v, true)).join(' / ') || '0'}
                       </td>
                     </tr>
                   ))
@@ -289,7 +299,9 @@ function buildBranchPage(col: any, rows: any[], date: string, formatDate: (d: st
   let tableRows = '';
   rows.forEach((row: any, idx: number) => {
     const qty = row[`branch_${col.id}`];
+    const unitQty = row[`branch_${col.id}_unit_qty`];
     const unit = row[`unit_${col.id}`] || '';
+    const unitText = (unitQty || unit) ? `${unitQty ? formatQty(unitQty) : ''} ${unit}`.trim() : '';
     tableRows += `
       <tr>
         <td class="sn">${idx + 1}</td>
@@ -297,8 +309,8 @@ function buildBranchPage(col: any, rows: any[], date: string, formatDate: (d: st
           <div class="ta">${row.product_name_tamil || row.product_name}</div>
           ${row.product_name_tamil ? `<div style="font-size:9px;color:#666">${row.product_name}</div>` : ''}
         </td>
-        <td class="unit">${unit}</td>
-        <td class="qty">${parseFloat((qty || 0).toFixed(3))}</td>
+        <td class="unit">${unitText}</td>
+        <td class="qty">${qty ? formatQty(qty) : ''}</td>
       </tr>`;
   });
 

@@ -34,10 +34,12 @@ router.get('/pending', requireRole(['BRANCH', 'ADMIN', 'WAREHOUSE']), async (req
       .select(
         'tel.id as transfer_entry_line_id', 
         'tel.qty_sent', 
+        'tel.unit_qty as sent_unit_qty',
         'p.id as product_id',
         'p.name as product_name', 
         'p.group_id',
-        'rel.qty_received'
+        'rel.qty_received',
+        'rel.unit_qty as received_unit_qty'
       )
       .where({ 'tel.transfer_entry_id': transfer.id });
 
@@ -71,11 +73,11 @@ router.post('/confirm', requireRole(['BRANCH']), async (req, res) => {
       await trx('receiving_entry_line').where({ receiving_entry_id: receiving.id }).delete();
     }
 
-    if (lines && lines.length > 0) {
       const linesToInsert = lines.map(l => ({
         receiving_entry_id: receiving.id,
         transfer_entry_line_id: l.transfer_entry_line_id,
-        qty_received: l.qty_received
+        qty_received: l.qty_received,
+        unit_qty: l.unit_qty || 0
       }));
       
       await trx('receiving_entry_line').insert(linesToInsert);

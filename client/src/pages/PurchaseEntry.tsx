@@ -349,8 +349,8 @@ const PurchaseEntry = () => {
                           ))}
                         </select>
                       </div>
-                      <div className="vb-mobile-qty-wrap">
-                        <span className="vb-mobile-qty-label">Purchased Qty</span>
+                      <div className="vb-mobile-qty-wrap" style={{ flex: 1 }}>
+                        <span className="vb-mobile-qty-label">Purchased Qty (KG)</span>
                         <input
                           type="number" min="0" step="0.01" inputMode="decimal" enterKeyHint="next"
                           ref={(el): void => { inputRefs.current[product.id].qty = el; }}
@@ -386,7 +386,7 @@ const PurchaseEntry = () => {
                   <th style={{ textAlign: 'right', width: 90 }}>Unit Qty</th>
                   <th style={{ textAlign: 'center', width: 80 }}>Unit</th>
                   <th style={{ textAlign: 'right', width: 100 }}>Total Closing Stock</th>
-                  <th style={{ textAlign: 'right', width: 150 }}>Purchased Qty</th>
+                  <th style={{ textAlign: 'right', width: 150 }}>Purchased Qty (KG)</th>
                   <th style={{ textAlign: 'right', width: 150 }}>Rate ₹ (Optional)</th>
                 </tr>
               </thead>

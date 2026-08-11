@@ -253,7 +253,7 @@ const ReceivingConfirmation = () => {
                             />
                           </div>
                           <div className="vb-mobile-qty-wrap">
-                            <span className="vb-mobile-qty-label">You Received / பெற்றது</span>
+                            <span className="vb-mobile-qty-label">You Received (KG) / பெற்றது</span>
                             <input
                               type="number" min="0" step="0.01" inputMode="decimal" enterKeyHint="next"
                               ref={(el) => { inputRefs.current[line.transfer_entry_line_id] = el; }}
@@ -276,7 +276,7 @@ const ReceivingConfirmation = () => {
                       <th>Item / பொருள்</th>
                       <th style={{ textAlign: 'right', width: 90 }}>Unit Qty</th>
                       <th style={{ textAlign: 'right', width: 110 }}>Sent</th>
-                      <th style={{ textAlign: 'right', width: 140 }}>You Received</th>
+                      <th style={{ textAlign: 'right', width: 160 }}>You Received (KG)</th>
                       <th style={{ textAlign: 'right', width: 110 }}>Difference</th>
                     </tr>
                   </thead>

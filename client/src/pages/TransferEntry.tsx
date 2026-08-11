@@ -325,7 +325,7 @@ const TransferEntry = () => {
                             </select>
                           </div>
                           <div className="vb-mobile-qty-wrap">
-                            <span className="vb-mobile-qty-label">Send Qty</span>
+                            <span className="vb-mobile-qty-label">Send Qty (KG)</span>
                             <input
                               type="number" min="0" step="0.01" inputMode="decimal" enterKeyHint="next"
                               ref={(el) => { inputRefs.current[product.id] = el; }}
@@ -351,7 +351,7 @@ const TransferEntry = () => {
                       <th style={{ textAlign: 'center', width: 80 }}>Unit</th>
                       <th style={{ textAlign: 'right', width: 100 }}>Available</th>
                       <th style={{ textAlign: 'right', width: 120 }}>Closing Stock</th>
-                      <th style={{ textAlign: 'right', width: 130 }}>Send Qty</th>
+                      <th style={{ textAlign: 'right', width: 130 }}>Send Qty (KG)</th>
                     </tr>
                   </thead>
                   <tbody>

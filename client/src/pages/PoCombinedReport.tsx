@@ -232,7 +232,7 @@ const PoCombinedReport = () => {
                   <th style={{ position: 'sticky', left: 0, background: '#2563ab' }}></th>
                   {report?.columns?.filter((c: any) => selectedBranchId === '' || c.id === selectedBranchId).flatMap((col: any) => [
                     <th key={`unit_${col.id}`} style={{ textAlign: 'center', fontSize: 11, fontWeight: 600, opacity: 0.85 }}>UNIT QTY</th>,
-                    <th key={`qty_${col.id}`} style={{ textAlign: 'right', fontSize: 11, fontWeight: 600, opacity: 0.85 }}>QTY</th>
+                    <th key={`qty_${col.id}`} style={{ textAlign: 'right', fontSize: 11, fontWeight: 600, opacity: 0.85 }}>QTY (KG)</th>
                   ])}
                   <th></th>
                 </tr>
@@ -310,7 +310,7 @@ function buildBranchPage(col: any, rows: any[], date: string, formatDate: (d: st
           ${row.product_name_tamil ? `<div style="font-size:9px;color:#666">${row.product_name}</div>` : ''}
         </td>
         <td class="unit">${unitText}</td>
-        <td class="qty">${qty ? formatQty(qty) : ''}</td>
+        <td class="qty">${qty ? formatQty(qty) + ' KG' : ''}</td>
       </tr>`;
   });
 

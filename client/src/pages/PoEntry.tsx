@@ -382,7 +382,7 @@ const PoEntry = () => {
                           </select>
                         </div>
                         <div className="vb-mobile-qty-wrap">
-                          <span className="vb-mobile-qty-label">Quantity / அளவு</span>
+                          <span className="vb-mobile-qty-label">Quantity (KG) / அளவு</span>
                           <input
                             type="number"
                             min="0"
@@ -411,7 +411,7 @@ const PoEntry = () => {
                     <th>Item</th>
                     <th style={{ textAlign: 'right', width: 90 }}>Unit Qty</th>
                     <th style={{ textAlign: 'center', width: 80 }}>Unit</th>
-                    <th style={{ textAlign: 'right', width: 130 }}>Quantity</th>
+                    <th style={{ textAlign: 'right', width: 130 }}>Quantity (KG)</th>
                   </tr>
                 </thead>
                 <tbody>

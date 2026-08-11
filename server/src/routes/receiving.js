@@ -81,7 +81,6 @@ router.post('/confirm', requireRole(['BRANCH']), async (req, res) => {
       }));
       
       await trx('receiving_entry_line').insert(linesToInsert);
-    }
 
     await trx.commit();
     res.json({ success: true, receiving_id: receiving.id });

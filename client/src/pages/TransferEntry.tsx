@@ -120,20 +120,13 @@ const TransferEntry = () => {
     saveMutation.mutate(lines);
   };
 
-  const orderedMap = new Map();
-  branchPO?.lines?.forEach((l: any) => {
-    orderedMap.set(l.product_id, l.qty);
+  const closingStockMap = new Map();
+  branchPO?.lines?.forEach((row: any) => {
+    closingStockMap.set(row.product_id, row.qty);
   });
 
   const baseFiltered = (products || [])
-    .filter((p: any) => selectedGroupId === '' || p.group_id === selectedGroupId)
-    .sort((a: any, b: any) => {
-      const aOrdered = orderedMap.get(a.id) || 0;
-      const bOrdered = orderedMap.get(b.id) || 0;
-      if (aOrdered > 0 && bOrdered === 0) return -1;
-      if (bOrdered > 0 && aOrdered === 0) return 1;
-      return 0;
-    });
+    .filter((p: any) => selectedGroupId === '' || p.group_id === selectedGroupId);
 
   const filteredProducts = showEnteredOnly
     ? baseFiltered.filter((p: any) => (transferLines[p.id] || 0) > 0)
@@ -259,15 +252,14 @@ const TransferEntry = () => {
                 <div className="vb-mobile-list">
                   {filteredProducts.map((product: any, idx: number) => {
                     const sentQty = transferLines[product.id] || 0;
-                    const orderedQty = orderedMap.get(product.id) || 0;
-                    const remaining = orderedQty > 0 ? orderedQty - sentQty : undefined;
+                    const closingStock = closingStockMap.get(product.id) || 0;
                     const isOver = product.stock_balance > 0 && sentQty > product.stock_balance;
                     const hasQty = sentQty > 0;
 
                     return (
                       <div
                         key={product.id}
-                        className={`vb-mobile-card${isOver ? ' is-over' : hasQty ? ' has-qty' : ''}${orderedQty > 0 ? ' has-required' : ''}`}
+                        className={`vb-mobile-card${isOver ? ' is-over' : hasQty ? ' has-qty' : ''}`}
                       >
                         <div className="vb-mobile-card-name">
                           {product.name_tamil || product.name}
@@ -280,13 +272,8 @@ const TransferEntry = () => {
                           {product.stock_balance > 0 && (
                             <span className="vb-chip vb-chip-grey">📦 Avail: {product.stock_balance}</span>
                           )}
-                          {orderedQty > 0 && (
-                            <span className="vb-chip vb-chip-blue">🛒 Ordered: {orderedQty}</span>
-                          )}
-                          {remaining !== undefined && sentQty > 0 && (
-                            <span className={`vb-chip ${remaining < 0 ? 'vb-chip-red' : 'vb-chip-green'}`}>
-                              {remaining < 0 ? '⚠ Over' : `✓ Rem: ${remaining}`}
-                            </span>
+                          {closingStock > 0 && (
+                            <span className="vb-chip vb-chip-blue" style={{ background: '#f8fafc', color: '#475569', border: '1px solid #cbd5e1' }}>📦 Closing Stock: {closingStock}</span>
                           )}
                           {isOver && (
                             <span className="vb-chip vb-chip-red">⚠ Exceeds stock!</span>
@@ -331,18 +318,16 @@ const TransferEntry = () => {
                       <th>Item</th>
                       <th style={{ textAlign: 'center', width: 80 }}>Unit</th>
                       <th style={{ textAlign: 'right', width: 100 }}>Available</th>
-                      <th style={{ textAlign: 'right', width: 100 }}>Ordered</th>
+                      <th style={{ textAlign: 'right', width: 120 }}>Closing Stock</th>
                       <th style={{ textAlign: 'right', width: 130 }}>Send Qty</th>
-                      <th style={{ textAlign: 'right', width: 100 }}>Remaining</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredProducts.map((product: any, idx: number) => {
                       const sentQty = transferLines[product.id] || 0;
-                      const orderedQty = orderedMap.get(product.id) || 0;
-                      const remaining = orderedQty > 0 ? orderedQty - sentQty : 0 - sentQty;
+                      const closingStock = closingStockMap.get(product.id) || 0;
                       const isOver = product.stock_balance > 0 && sentQty > product.stock_balance;
-                      const rowStyle = isOver ? 'var(--vb-red-pale)' : (orderedQty > 0 ? '#f0f7ff' : (sentQty > 0 ? 'var(--vb-green-pale)' : undefined));
+                      const rowStyle = isOver ? 'var(--vb-red-pale)' : (sentQty > 0 ? 'var(--vb-green-pale)' : undefined);
 
                       return (
                         <tr key={product.id} style={{ background: rowStyle }}>
@@ -362,11 +347,11 @@ const TransferEntry = () => {
                               ))}
                             </select>
                           </td>
-                          <td style={{ textAlign: 'right', fontWeight: 700, fontSize: 15, color: 'var(--vb-muted)' }}>
-                            {product.stock_balance > 0 ? product.stock_balance : '0'}
+                          <td style={{ textAlign: 'right', fontSize: 13, color: 'var(--vb-muted)' }}>
+                            {product.stock_balance || '—'}
                           </td>
-                          <td style={{ textAlign: 'right', fontWeight: 800, fontSize: 15, color: 'var(--vb-blue)' }}>
-                            {orderedQty > 0 ? orderedQty : '—'}
+                          <td style={{ textAlign: 'right', fontWeight: 700, fontSize: 14, color: '#475569' }}>
+                            {closingStock > 0 ? closingStock : '—'}
                           </td>
                           <td style={{ textAlign: 'right' }}>
                             <input
@@ -376,20 +361,9 @@ const TransferEntry = () => {
                               onChange={e => handleQtyChange(product.id, e.target.value)}
                               onKeyDown={e => handleKeyDown(e, idx, filteredProducts)}
                               className={`vb-qty-input${isOver ? ' shortage' : ''}`}
-                              style={{ width: 100 }}
+                              style={{ width: 120 }}
                               placeholder="0"
                             />
-                          </td>
-                          <td style={{ textAlign: 'right' }}>
-                            {orderedQty > 0 ? (
-                              <span style={{ fontSize: 16, fontWeight: 800, color: remaining < 0 ? 'var(--vb-red-dark)' : 'var(--vb-green-dark)' }}>
-                                {remaining}
-                              </span>
-                            ) : (
-                              <span style={{ color: remaining < 0 ? 'var(--vb-red-dark)' : 'var(--vb-muted)' }}>
-                                {remaining < 0 ? remaining : '—'}
-                              </span>
-                            )}
                             {isOver && <div style={{ fontSize: 11, color: 'var(--vb-red)', fontWeight: 600 }}>Over stock!</div>}
                           </td>
                         </tr>

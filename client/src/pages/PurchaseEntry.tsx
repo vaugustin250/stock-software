@@ -146,14 +146,7 @@ const PurchaseEntry = () => {
   });
 
   const baseFiltered = (products || [])
-    .filter((p: any) => selectedGroupId === '' || p.group_id === selectedGroupId)
-    .sort((a: any, b: any) => {
-      const reqA = requiredMap.get(a.id) || 0;
-      const reqB = requiredMap.get(b.id) || 0;
-      if (reqA > 0 && reqB === 0) return -1;
-      if (reqB > 0 && reqA === 0) return 1;
-      return 0;
-    });
+    .filter((p: any) => selectedGroupId === '' || p.group_id === selectedGroupId);
 
   const filteredProducts = showEnteredOnly
     ? baseFiltered.filter((p: any) => (purchaseLines[p.id]?.qty || 0) > 0)
@@ -312,11 +305,11 @@ const PurchaseEntry = () => {
                 if (!inputRefs.current[product.id]) inputRefs.current[product.id] = { qty: null, rate: null };
                 const line = purchaseLines[product.id];
                 const hasQty = line?.qty && line.qty > 0;
-                const reqQty = requiredMap.get(product.id) || 0;
+                const closingStock = requiredMap.get(product.id) || 0;
                 return (
                   <div
                     key={product.id}
-                    className={`vb-mobile-card${hasQty ? ' has-qty' : ''}${reqQty > 0 ? ' has-required' : ''}`}
+                    className={`vb-mobile-card${hasQty ? ' has-qty' : ''}`}
                   >
                     <div className="vb-mobile-card-name">
                       {product.name_tamil || product.name}
@@ -324,9 +317,9 @@ const PurchaseEntry = () => {
                     {product.name_tamil && (
                       <span className="vb-mobile-card-name-en">{product.name}</span>
                     )}
-                    {reqQty > 0 && (
+                    {closingStock > 0 && (
                       <div className="vb-mobile-card-chips">
-                        <span className="vb-chip vb-chip-blue">🛒 Required: {reqQty}</span>
+                        <span className="vb-chip vb-chip-blue" style={{ background: '#f8fafc', color: '#475569', border: '1px solid #cbd5e1' }}>📦 Closing Stock: {closingStock}</span>
                       </div>
                     )}
                     <div className="vb-mobile-card-inputs">
@@ -377,7 +370,7 @@ const PurchaseEntry = () => {
                 <tr>
                   <th>Item</th>
                   <th style={{ textAlign: 'center', width: 80 }}>Unit</th>
-                  <th style={{ textAlign: 'right', width: 100 }}>Required</th>
+                  <th style={{ textAlign: 'right', width: 100 }}>Total Closing Stock</th>
                   <th style={{ textAlign: 'right', width: 150 }}>Purchased Qty</th>
                   <th style={{ textAlign: 'right', width: 150 }}>Rate ₹ (Optional)</th>
                 </tr>
@@ -387,8 +380,8 @@ const PurchaseEntry = () => {
                   if (!inputRefs.current[product.id]) inputRefs.current[product.id] = { qty: null, rate: null };
                   const line = purchaseLines[product.id];
                   const hasQty = line?.qty && line.qty > 0;
-                  const reqQty = requiredMap.get(product.id) || 0;
-                  const rowStyle = hasQty ? 'var(--vb-green-pale)' : (reqQty > 0 ? '#f0f7ff' : undefined);
+                  const closingStock = requiredMap.get(product.id) || 0;
+                  const rowStyle = hasQty ? 'var(--vb-green-pale)' : undefined;
 
                   return (
                     <tr key={product.id} style={{ background: rowStyle }}>
@@ -408,8 +401,8 @@ const PurchaseEntry = () => {
                           ))}
                         </select>
                       </td>
-                      <td style={{ textAlign: 'right', fontWeight: 800, fontSize: 15, color: 'var(--vb-blue)' }}>
-                        {reqQty > 0 ? reqQty : '—'}
+                      <td style={{ textAlign: 'right', fontWeight: 800, fontSize: 15, color: '#475569' }}>
+                        {closingStock > 0 ? closingStock : '—'}
                       </td>
                       <td style={{ textAlign: 'right' }}>
                         <input

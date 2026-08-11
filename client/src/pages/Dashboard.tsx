@@ -81,7 +81,7 @@ const Dashboard = () => {
 
   const branchTiles = [
     {
-      title: "Closing Stock Entry",
+      title: "Today Closing Stock",
       titleTa: 'இன்றைய கையிருப்பு',
       sub: 'Enter today closing stock',
       icon: ShoppingCart,
@@ -128,7 +128,7 @@ const Dashboard = () => {
 
   const warehouseTiles = [
     {
-      title: 'Branch Closing Stock',
+      title: 'Today Closing Stock',
       sub: 'Enter stock for branches',
       icon: ShoppingCart,
       iconClass: 'vb-tile-icon-blue',

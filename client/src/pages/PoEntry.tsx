@@ -184,7 +184,7 @@ const PoEntry = () => {
       {/* Header */}
       <div className="vb-page-header" style={{ flexWrap: isMobile ? 'nowrap' : 'wrap', alignItems: 'center', marginBottom: isMobile ? 12 : 24 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <h1 className="vb-page-title" style={{ fontSize: isMobile ? 20 : 22, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Closing Stock Entry</h1>
+          <h1 className="vb-page-title" style={{ fontSize: isMobile ? 20 : 22, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Today Closing Stock</h1>
           <p className="vb-page-sub" style={{ fontFamily: "'Noto Sans Tamil', sans-serif", fontSize: isMobile ? 12 : 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             இன்றைய கையிருப்பு / Today's Closing Stock
           </p>

@@ -38,7 +38,7 @@ router.get('/', requireRole(['WAREHOUSE', 'ADMIN']), async (req, res) => {
         'product.default_unit_id as unit_id',
         'unit.name as unit_name'
       )
-      .where({ 'product.active': true });
+      .where({ 'product.is_active': true });
 
     // 4. Get existing allocations for the day
     const allocations = await db('purchase_man_allocation').where({ date });

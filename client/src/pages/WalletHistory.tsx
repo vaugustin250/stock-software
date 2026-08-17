@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
-import { IndianRupee, ArrowDownRight, ArrowUpRight, History } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, History } from 'lucide-react';
 import { useIsMobile } from '../hooks/useIsMobile';
 
 export default function WalletHistory() {

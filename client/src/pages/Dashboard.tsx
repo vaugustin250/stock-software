@@ -146,7 +146,7 @@ const Dashboard = () => {
       delay: 80,
     },
     {
-      title: 'Purchase Entry',
+      title: 'Stock Inward Entry',
       sub: 'Record godown purchases',
       icon: Box,
       iconClass: 'vb-tile-icon-green',

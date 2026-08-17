@@ -29,7 +29,7 @@ const navItems: NavItem[] = [
   { name: 'Live Rates',      href: '/rates/view',          icon: IndianRupee,    roles: ['BRANCH', 'WAREHOUSE', 'ADMIN'], section: 'Branch' },
   // Warehouse
   { name: 'Closing Stock Report', href: '/po/combined-report', icon: ClipboardList, roles: ['WAREHOUSE', 'ADMIN'],       section: 'Warehouse' },
-  { name: 'Purchase Entry',  href: '/inventory/purchase',  icon: Box,            roles: ['WAREHOUSE', 'ADMIN'],           section: 'Warehouse' },
+  { name: 'Stock Inward Entry',  href: '/inventory/purchase',  icon: Box,            roles: ['WAREHOUSE', 'ADMIN'],           section: 'Warehouse' },
   { name: 'Send Stock',      href: '/inventory/transfer',  icon: Truck,          roles: ['WAREHOUSE', 'ADMIN'],           section: 'Warehouse' },
   { name: 'Rate Master',     href: '/rates/master',        icon: IndianRupee,    roles: ['WAREHOUSE', 'ADMIN'],           section: 'Warehouse' },
   { name: 'Rate History',    href: '/rates/weekly',        icon: LineChart,      roles: ['WAREHOUSE', 'ADMIN'],           section: 'Warehouse' },

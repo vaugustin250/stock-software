@@ -181,7 +181,7 @@ const PurchaseEntry = () => {
       {/* Header */}
       <div className="vb-page-header">
         <div>
-          <h1 className="vb-page-title">Purchase Entry</h1>
+          <h1 className="vb-page-title">Stock Inward Entry</h1>
           <p className="vb-page-sub">Godown — {today}</p>
         </div>
       </div>

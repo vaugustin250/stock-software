@@ -22,8 +22,8 @@ const PurchaseVsOrdered = () => {
       {/* Header */}
       <div className="vb-page-header">
         <div>
-          <h1 className="vb-page-title">Purchase vs Ordered</h1>
-          <p className="vb-page-sub">Compare what branches ordered vs what was actually purchased</p>
+          <h1 className="vb-page-title">Purchase vs Closing Stock</h1>
+          <p className="vb-page-sub">Compare what branches entered as closing stock vs what was actually purchased</p>
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
           <div style={{ position: 'relative' }}>
@@ -66,7 +66,7 @@ const PurchaseVsOrdered = () => {
                 <tr>
                   <th style={{ width: 80 }}>Code</th>
                   <th>Item</th>
-                  <th style={{ textAlign: 'right' }}>Total Ordered</th>
+                  <th style={{ textAlign: 'right' }}>Total Closing Stock</th>
                   <th style={{ textAlign: 'right' }}>Total Purchased</th>
                   <th style={{ textAlign: 'right', width: 130 }}>Variance</th>
                 </tr>

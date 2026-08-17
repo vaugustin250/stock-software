@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
-import { Info, Filter, Search, X } from 'lucide-react';
+import { Filter, Search, X } from 'lucide-react';
 import { useIsMobile } from '../hooks/useIsMobile';
 
 function useToast() {

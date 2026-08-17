@@ -183,8 +183,8 @@ export default function PurchaseAllocation() {
                               className="vb-input"
                               style={{ 
                                 height: 32, textAlign: 'center', 
-                                border: val > 0 ? '1px solid var(--vb-blue)' : '1px solid var(--vb-border)',
-                                background: val > 0 ? 'var(--vb-blue-pale)' : 'white'
+                                border: Number(val) > 0 ? '1px solid var(--vb-blue)' : '1px solid var(--vb-border)',
+                                background: Number(val) > 0 ? 'var(--vb-blue-pale)' : 'white'
                               }}
                               value={val}
                               onChange={e => handleChange(row.product_id, pm.id, e.target.value)}

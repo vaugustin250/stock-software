@@ -42,6 +42,7 @@ const navItems: NavItem[] = [
   { name: 'Buy Stock',       href: '/purchase-man/market',    icon: ShoppingCart, roles: ['PURCHASE_MAN'],                 section: 'Market Purchase' },
   { name: 'My Wallet',       href: '/purchase-man/wallet',    icon: IndianRupee,  roles: ['PURCHASE_MAN'],                 section: 'Market Purchase' },
   // Admin Masters
+  { name: 'Suppliers',       href: '/masters/suppliers',   icon: Store,          roles: ['ADMIN', 'WAREHOUSE'],           section: 'Masters' },
   { name: 'Products',        href: '/masters/products',    icon: Package,        roles: ['ADMIN'],                        section: 'Masters' },
   { name: 'Groups',          href: '/masters/groups',      icon: FileSpreadsheet,roles: ['ADMIN'],                        section: 'Masters' },
   { name: 'Departments',     href: '/masters/departments', icon: FileSpreadsheet,roles: ['ADMIN'],                        section: 'Masters' },

@@ -71,6 +71,7 @@ router.get('/', requireRole(['WAREHOUSE', 'ADMIN']), async (req, res) => {
 
     res.json({ purchaseMen, matrix });
   } catch (err) {
+    console.error('API Error in /allocation:', err);
     res.status(500).json({ error: err.message });
   }
 });

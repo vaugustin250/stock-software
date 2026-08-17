@@ -129,7 +129,7 @@ export default function PurchaseAllocation() {
               <tr>
                 <th style={{ minWidth: 200, position: 'sticky', left: 0, zIndex: 10 }}>Product</th>
                 <th style={{ width: 100, textAlign: 'center' }}>Unit</th>
-                <th style={{ width: 120, textAlign: 'right' }}>Total Needed</th>
+                <th style={{ width: 120, textAlign: 'right' }}>Closing Stock</th>
                 <th style={{ width: 120, textAlign: 'right', borderRight: '2px solid var(--vb-border)' }}>Total Assigned</th>
                 {purchaseMen.map((pm: any) => (
                   <th key={pm.id} style={{ minWidth: 120, textAlign: 'center', background: 'var(--vb-blue-pale)', color: 'var(--vb-blue)' }}>
@@ -151,24 +151,24 @@ export default function PurchaseAllocation() {
               ) : (
                 matrix.map((row: any) => {
                   const totalAssigned = getRowTotal(row.product_id);
-                  const isFullyAssigned = totalAssigned >= row.total_qty;
+                  const isAssigned = totalAssigned > 0;
                   
                   return (
-                    <tr key={row.product_id} style={{ background: isFullyAssigned ? '#f8fafc' : 'white' }}>
-                      <td style={{ position: 'sticky', left: 0, zIndex: 5, background: isFullyAssigned ? '#f8fafc' : 'white' }}>
+                    <tr key={row.product_id} style={{ background: isAssigned ? '#f8fafc' : 'white' }}>
+                      <td style={{ position: 'sticky', left: 0, zIndex: 5, background: isAssigned ? '#f8fafc' : 'white' }}>
                         <div style={{ fontWeight: 600, color: '#0f172a' }}>{row.product_name}</div>
                         {row.product_name_tamil && <div style={{ fontSize: 12, color: '#64748b' }}>{row.product_name_tamil}</div>}
                       </td>
                       <td style={{ textAlign: 'center' }}>
                         <span className="vb-badge vb-badge-gray">{row.unit_name}</span>
                       </td>
-                      <td style={{ textAlign: 'right', fontWeight: 700, fontSize: 15, color: '#ef4444' }}>
-                        {row.total_qty}
+                      <td style={{ textAlign: 'right', fontWeight: 700, fontSize: 15, color: '#f59e0b' }}>
+                        {row.total_closing_qty}
                       </td>
                       <td style={{ textAlign: 'right', borderRight: '2px solid var(--vb-border)' }}>
                         <span style={{ 
                           fontWeight: 700, fontSize: 15, 
-                          color: isFullyAssigned ? '#10b981' : '#f59e0b'
+                          color: isAssigned ? '#10b981' : '#64748b'
                         }}>
                           {totalAssigned}
                         </span>

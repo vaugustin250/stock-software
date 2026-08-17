@@ -15,37 +15,58 @@ router.get('/', requireRole(['WAREHOUSE', 'ADMIN']), async (req, res) => {
       .select('id', 'username')
       .where({ role: 'PURCHASE_MAN', active: true });
 
-    // 2. Get combined Godown requirements for the day (from POs)
+    // 2. Get combined Godown closing stock for the day (from POs)
     const pos = await db('po_entry').where({ entry_date: date });
     const poIds = pos.map(p => p.id);
 
-    let requirements = [];
+    let closingStockLines = [];
     if (poIds.length > 0) {
-      requirements = await db('po_entry_line')
-        .join('product', 'po_entry_line.product_id', 'product.id')
-        .join('unit', 'po_entry_line.unit_id', 'unit.id')
-        .select('po_entry_line.product_id', 'product.name as product_name', 'product.name_tamil as product_name_tamil', 'unit.name as unit_name', 'po_entry_line.unit_id')
-        .sum('po_entry_line.qty as total_qty')
+      closingStockLines = await db('po_entry_line')
+        .select('product_id')
+        .sum('qty as total_qty')
         .whereIn('po_entry_id', poIds)
-        .groupBy('po_entry_line.product_id', 'product.name', 'product.name_tamil', 'unit.name', 'po_entry_line.unit_id');
+        .groupBy('product_id');
     }
 
-    // 3. Get existing allocations for the day
+    // 3. Get all active products
+    const products = await db('product')
+      .join('unit', 'product.default_unit_id', 'unit.id')
+      .select(
+        'product.id as product_id', 
+        'product.name as product_name', 
+        'product.name_tamil as product_name_tamil', 
+        'product.default_unit_id as unit_id',
+        'unit.name as unit_name'
+      )
+      .where({ 'product.active': true });
+
+    // 4. Get existing allocations for the day
     const allocations = await db('purchase_man_allocation').where({ date });
 
-    // 4. Build Matrix
-    // matrix: [ { product_id, product_name, total_qty, unit_id, unit_name, allocations: { [pm_id]: allocated_qty } } ]
-    const matrix = requirements.map(req => {
+    // 5. Build Matrix for ALL products
+    // matrix: [ { product_id, product_name, total_closing_qty, unit_id, unit_name, allocations: { [pm_id]: allocated_qty } } ]
+    let matrix = products.map(prod => {
+      const closingRow = closingStockLines.find(c => c.product_id === prod.product_id);
+      const total_closing_qty = closingRow ? parseFloat(closingRow.total_qty) : 0;
+      
       const prodAllocations = {};
       purchaseMen.forEach(pm => {
-        const alloc = allocations.find(a => a.product_id === req.product_id && a.purchase_man_id === pm.id);
+        const alloc = allocations.find(a => a.product_id === prod.product_id && a.purchase_man_id === pm.id);
         prodAllocations[pm.id] = alloc ? parseFloat(alloc.allocated_qty) : 0;
       });
+      
       return {
-        ...req,
-        total_qty: parseFloat(req.total_qty),
+        ...prod,
+        total_closing_qty,
         allocations: prodAllocations
       };
+    });
+
+    // 6. Sort: Products with active closing stock > 0 first, then alphabetically by name
+    matrix.sort((a, b) => {
+      if (a.total_closing_qty > 0 && b.total_closing_qty === 0) return -1;
+      if (b.total_closing_qty > 0 && a.total_closing_qty === 0) return 1;
+      return a.product_name.localeCompare(b.product_name);
     });
 
     res.json({ purchaseMen, matrix });

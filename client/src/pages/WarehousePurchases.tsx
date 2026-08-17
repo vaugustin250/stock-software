@@ -7,6 +7,8 @@ import { useIsMobile } from '../hooks/useIsMobile';
 export default function WarehousePurchases() {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [search, setSearch] = useState('');
+  const [selectedPm, setSelectedPm] = useState('');
+  const [selectedSupplier, setSelectedSupplier] = useState('');
   const isMobile = useIsMobile();
 
   const { data: purchases = [], isLoading } = useQuery({
@@ -17,11 +19,15 @@ export default function WarehousePurchases() {
     }
   });
 
-  const filteredPurchases = purchases.filter((p: any) => 
-    p.product_name.toLowerCase().includes(search.toLowerCase()) ||
-    p.purchase_man_name.toLowerCase().includes(search.toLowerCase()) ||
-    (p.supplier_name || '').toLowerCase().includes(search.toLowerCase())
-  );
+  const uniquePms = Array.from(new Set(purchases.map((p: any) => p.purchase_man_name))).filter(Boolean);
+  const uniqueSuppliers = Array.from(new Set(purchases.map((p: any) => p.supplier_name))).filter(Boolean);
+
+  const filteredPurchases = purchases.filter((p: any) => {
+    const matchSearch = search.trim() === '' || p.product_name.toLowerCase().includes(search.toLowerCase());
+    const matchPm = selectedPm === '' || p.purchase_man_name === selectedPm;
+    const matchSupplier = selectedSupplier === '' || p.supplier_name === selectedSupplier;
+    return matchSearch && matchPm && matchSupplier;
+  });
 
   return (
     <div className="vb-content-container">
@@ -56,19 +62,43 @@ export default function WarehousePurchases() {
           </div>
         </div>
 
-        <div style={{ flex: '2 1 300px' }}>
-          <label style={{ display: 'block', fontSize: 12, color: '#64748b', marginBottom: 6 }}>Search</label>
+        <div style={{ flex: '2 1 200px' }}>
+          <label style={{ display: 'block', fontSize: 12, color: '#64748b', marginBottom: 6 }}>Search Product</label>
           <div className="vb-input-icon-wrapper">
             <Search className="vb-input-icon" size={16} />
             <input
               type="text"
               className="vb-input"
-              placeholder="Search product, purchase man, or supplier..."
+              placeholder="Search product..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               style={{ paddingLeft: 36 }}
             />
           </div>
+        </div>
+
+        <div style={{ flex: '1 1 150px' }}>
+          <label style={{ display: 'block', fontSize: 12, color: '#64748b', marginBottom: 6 }}>Purchase Man</label>
+          <select
+            className="vb-input"
+            value={selectedPm}
+            onChange={(e) => setSelectedPm(e.target.value)}
+          >
+            <option value="">All Purchase Men</option>
+            {uniquePms.map(pm => <option key={pm as string} value={pm as string}>{pm as string}</option>)}
+          </select>
+        </div>
+
+        <div style={{ flex: '1 1 150px' }}>
+          <label style={{ display: 'block', fontSize: 12, color: '#64748b', marginBottom: 6 }}>Supplier</label>
+          <select
+            className="vb-input"
+            value={selectedSupplier}
+            onChange={(e) => setSelectedSupplier(e.target.value)}
+          >
+            <option value="">All Suppliers</option>
+            {uniqueSuppliers.map(sup => <option key={sup as string} value={sup as string}>{sup as string}</option>)}
+          </select>
         </div>
       </div>
 

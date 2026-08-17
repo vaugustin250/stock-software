@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
-import { Save, Calendar, CheckSquare } from 'lucide-react';
+import { Save, Calendar, CheckSquare, Search, X } from 'lucide-react';
 
 function useToast() {
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
@@ -19,9 +19,23 @@ export default function PurchaseAllocation() {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [allocations, setAllocations] = useState<Record<string, Record<number, number>>>({}); // [product_id][pm_id] = qty
 
+  const [search, setSearch] = useState('');
+  const [selectedGroupId, setSelectedGroupId] = useState<number | ''>('');
+  const [selectedDeptId, setSelectedDeptId] = useState<number | ''>('');
+
   const { data, isLoading } = useQuery({
     queryKey: ['purchase_allocations', date],
     queryFn: async () => (await api.get(`/allocation?date=${date}`)).data
+  });
+
+  const { data: groups } = useQuery({
+    queryKey: ['groups'],
+    queryFn: async () => (await api.get('/masters/group')).data
+  });
+
+  const { data: departments } = useQuery({
+    queryKey: ['departments'],
+    queryFn: async () => (await api.get('/masters/department')).data
   });
 
   // Initialize state from fetched data
@@ -86,6 +100,13 @@ export default function PurchaseAllocation() {
   const matrix = data?.matrix || [];
   const purchaseMen = data?.purchaseMen || [];
 
+  const filteredMatrix = matrix.filter((row: any) => {
+    const matchesSearch = row.product_name.toLowerCase().includes(search.toLowerCase());
+    const matchesGroup = selectedGroupId === '' || row.group_id === selectedGroupId;
+    const matchesDept = selectedDeptId === '' || row.department_id === selectedDeptId;
+    return matchesSearch && matchesGroup && matchesDept;
+  });
+
   return (
     <div className="vb-page">
       {toast && (
@@ -123,6 +144,45 @@ export default function PurchaseAllocation() {
       </div>
 
       <div className="vb-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--vb-border)', display: 'flex', gap: 16, backgroundColor: '#f8fafc', flexWrap: 'wrap' }}>
+          <div style={{ position: 'relative', flex: '1 1 200px' }}>
+            <Search size={16} style={{ position: 'absolute', top: 10, left: 12, color: '#64748b' }} />
+            <input
+              type="text"
+              className="vb-input"
+              placeholder="Search product..."
+              style={{ paddingLeft: 36, height: 36 }}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            {search && (
+              <button
+                onClick={() => setSearch('')}
+                style={{ position: 'absolute', top: 10, right: 12, color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }}
+              >
+                <X size={16} />
+              </button>
+            )}
+          </div>
+          <select 
+            className="vb-input" 
+            style={{ width: 160, height: 36 }}
+            value={selectedGroupId}
+            onChange={(e) => setSelectedGroupId(e.target.value ? parseInt(e.target.value) : '')}
+          >
+            <option value="">All Categories</option>
+            {groups?.map((g: any) => <option key={g.id} value={g.id}>{g.name}</option>)}
+          </select>
+          <select 
+            className="vb-input" 
+            style={{ width: 160, height: 36 }}
+            value={selectedDeptId}
+            onChange={(e) => setSelectedDeptId(e.target.value ? parseInt(e.target.value) : '')}
+          >
+            <option value="">All Departments</option>
+            {departments?.map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
+          </select>
+        </div>
         <div className="vb-table-container">
           <table className="vb-table">
             <thead>
@@ -140,16 +200,19 @@ export default function PurchaseAllocation() {
             </thead>
             <tbody>
               {isLoading ? (
-                <tr><td colSpan={5 + purchaseMen.length} style={{ textAlign: 'center', padding: 32 }}>Loading...</td></tr>
-              ) : matrix.length === 0 ? (
                 <tr>
-                  <td colSpan={5 + purchaseMen.length} style={{ textAlign: 'center', padding: 32, color: '#64748b' }}>
-                    <CheckSquare size={48} style={{ margin: '0 auto 16px', opacity: 0.5 }} />
-                    No combined requirements found for this date.
+                  <td colSpan={purchaseMen.length + 4} style={{ textAlign: 'center', padding: 40, color: 'var(--vb-muted)' }}>
+                    Loading allocations...
+                  </td>
+                </tr>
+              ) : filteredMatrix.length === 0 ? (
+                <tr>
+                  <td colSpan={purchaseMen.length + 4} style={{ textAlign: 'center', padding: 40, color: 'var(--vb-muted)' }}>
+                    No products found.
                   </td>
                 </tr>
               ) : (
-                matrix.map((row: any) => {
+                filteredMatrix.map((row: any) => {
                   const totalAssigned = getRowTotal(row.product_id);
                   const isAssigned = totalAssigned > 0;
                   

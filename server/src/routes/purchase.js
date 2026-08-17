@@ -10,7 +10,7 @@ router.get('/entry', requireRole(['ADMIN', 'WAREHOUSE', 'PURCHASE_MAN']), async 
   try {
     const entry_date = req.query.date || new Date().toISOString().split('T')[0];
 
-    const purchases = await db('purchase_entry').where({ entry_date });
+    const purchases = await db('purchase_entry').where({ entry_date, created_by: req.user.id });
     if (purchases.length === 0) return res.json({ lines: [] });
 
     const purchaseIds = purchases.map(p => p.id);

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
-import { Wallet, Plus, Search, IndianRupee } from 'lucide-react';
+import { Wallet, Plus, Search, IndianRupee, History, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { Modal } from '../components/Modal';
 import { useIsMobile } from '../hooks/useIsMobile';
 
@@ -11,8 +11,15 @@ export default function PurchaseMenWallet() {
   const [searchTerm, setSearchTerm] = useState('');
   
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [selectedMan, setSelectedMan] = useState<any>(null);
   const [funds, setFunds] = useState({ amount: '', description: '' });
+
+  const { data: history = [], isLoading: loadingHistory } = useQuery({
+    queryKey: ['wallet_history', selectedMan?.id],
+    queryFn: async () => (await api.get(`/wallet/history/${selectedMan.id}`)).data,
+    enabled: isHistoryModalOpen && !!selectedMan?.id
+  });
 
   const { data: purchaseMen, isLoading } = useQuery({
     queryKey: ['users', { role: 'PURCHASE_MAN' }],
@@ -94,13 +101,22 @@ export default function PurchaseMenWallet() {
                     </div>
                   </div>
                   
-                  <button 
-                    onClick={() => { setSelectedMan(user); setIsModalOpen(true); }}
-                    className="vb-btn vb-btn-primary" 
-                    style={{ width: '100%', height: 36, justifyContent: 'center' }}
-                  >
-                    <Plus size={16} /> Give Money
-                  </button>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button 
+                      onClick={() => { setSelectedMan(user); setIsHistoryModalOpen(true); }}
+                      className="vb-btn vb-btn-outline-blue" 
+                      style={{ flex: 1, height: 36, justifyContent: 'center' }}
+                    >
+                      <History size={16} /> History
+                    </button>
+                    <button 
+                      onClick={() => { setSelectedMan(user); setIsModalOpen(true); }}
+                      className="vb-btn vb-btn-primary" 
+                      style={{ flex: 1, height: 36, justifyContent: 'center' }}
+                    >
+                      <Plus size={16} /> Give Money
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -159,6 +175,60 @@ export default function PurchaseMenWallet() {
             </button>
           </div>
         </form>
+      </Modal>
+
+      <Modal isOpen={isHistoryModalOpen} onClose={() => setIsHistoryModalOpen(false)} title={`${selectedMan?.username}'s Wallet History`}>
+        <div style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+          {loadingHistory ? (
+            <div style={{ padding: 20, textAlign: 'center', color: '#64748b' }}>Loading history...</div>
+          ) : history.length === 0 ? (
+            <div style={{ padding: 20, textAlign: 'center', color: '#64748b' }}>
+              <History size={48} style={{ margin: '0 auto 16px', opacity: 0.5 }} />
+              No transactions found.
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {history.map((tx: any) => {
+                const isCredit = tx.type === 'CREDIT';
+                const date = new Date(tx.created_at);
+                
+                return (
+                  <div key={tx.id} style={{ 
+                    display: 'flex', alignItems: 'center', gap: 12, padding: 12, 
+                    border: '1px solid var(--vb-border)', borderRadius: 8, backgroundColor: '#f8fafc' 
+                  }}>
+                    <div style={{ 
+                      width: 40, height: 40, borderRadius: 20, 
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      backgroundColor: isCredit ? '#d1fae5' : '#fee2e2',
+                      color: isCredit ? '#10b981' : '#ef4444'
+                    }}>
+                      {isCredit ? <ArrowDownRight size={20} /> : <ArrowUpRight size={20} />}
+                    </div>
+                    
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: '#0f172a' }}>
+                        {tx.description || (isCredit ? 'Cash Received' : 'Purchase')}
+                      </div>
+                      <div style={{ fontSize: 12, color: '#64748b' }}>
+                        {date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })} at {date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    </div>
+                    
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ 
+                        fontSize: 15, fontWeight: 700, 
+                        color: isCredit ? '#10b981' : '#ef4444' 
+                      }}>
+                        {isCredit ? '+' : '-'} ₹{Math.abs(tx.amount).toLocaleString()}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </Modal>
     </div>
   );

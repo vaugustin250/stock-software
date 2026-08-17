@@ -30,6 +30,7 @@ const navItems: NavItem[] = [
   // Warehouse
   { name: 'Closing Stock Report', href: '/po/combined-report', icon: ClipboardList, roles: ['WAREHOUSE', 'ADMIN'],       section: 'Warehouse' },
   { name: 'Stock Inward Entry',  href: '/inventory/purchase',  icon: Box,            roles: ['WAREHOUSE', 'ADMIN'],           section: 'Warehouse' },
+  { name: 'Assign Purchases',href: '/warehouse/allocations', icon: CheckSquare,  roles: ['WAREHOUSE', 'ADMIN'],           section: 'Warehouse' },
   { name: 'Send Stock',      href: '/inventory/transfer',  icon: Truck,          roles: ['WAREHOUSE', 'ADMIN'],           section: 'Warehouse' },
   { name: 'Rate Master',     href: '/rates/master',        icon: IndianRupee,    roles: ['WAREHOUSE', 'ADMIN'],           section: 'Warehouse' },
   { name: 'Rate History',    href: '/rates/weekly',        icon: LineChart,      roles: ['WAREHOUSE', 'ADMIN'],           section: 'Warehouse' },

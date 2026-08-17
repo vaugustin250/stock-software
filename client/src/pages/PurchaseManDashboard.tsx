@@ -14,8 +14,8 @@ export default function PurchaseManDashboard() {
   });
 
   const { data: requirements, isLoading: loadingReq } = useQuery({
-    queryKey: ['po_combined', today],
-    queryFn: async () => (await api.get(`/po/combined-report?date=${today}`)).data
+    queryKey: ['my_allocations', today],
+    queryFn: async () => (await api.get(`/allocation/my?date=${today}`)).data
   });
 
   return (
@@ -58,7 +58,7 @@ export default function PurchaseManDashboard() {
       <div className="vb-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--vb-border)', display: 'flex', alignItems: 'center', gap: 8 }}>
           <Info size={18} style={{ color: 'var(--vb-muted)' }} />
-          <h2 style={{ fontSize: 16, margin: 0, fontWeight: 600 }}>Godown Requirements for Today</h2>
+          <h2 style={{ fontSize: 16, margin: 0, fontWeight: 600 }}>My Assigned Purchases for Today</h2>
         </div>
         
         <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '8px' : '16px' }}>
@@ -77,8 +77,8 @@ export default function PurchaseManDashboard() {
                     </div>
                   )}
                   <div style={{ marginTop: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-                    <span style={{ fontSize: 12, color: '#64748b' }}>Needed</span>
-                    <span style={{ fontSize: 16, fontWeight: 700, color: '#10b981' }}>{item.total} {item.unit_name}</span>
+                    <span style={{ fontSize: 12, color: '#64748b' }}>Assigned</span>
+                    <span style={{ fontSize: 16, fontWeight: 700, color: '#10b981' }}>{parseFloat(item.total)} {item.unit_name}</span>
                   </div>
                 </div>
               ))}

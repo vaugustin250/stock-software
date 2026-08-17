@@ -49,6 +49,12 @@ export default function MarketPurchase() {
     queryFn: async () => (await api.get('/masters/units')).data
   });
 
+  const today = new Date().toISOString().split('T')[0];
+  const { data: allocations } = useQuery({
+    queryKey: ['my_allocations', today],
+    queryFn: async () => (await api.get(`/allocation/my?date=${today}`)).data
+  });
+
   const saveMutation = useMutation({
     mutationFn: async () => {
       const lines = Object.entries(purchaseLines)
@@ -200,6 +206,7 @@ export default function MarketPurchase() {
               {filteredProducts.map((p: any) => {
                 const pd = purchaseLines[p.id] || { qty: '', rate: '', unit_id: p.default_unit_id || 1, unit_qty: '' };
                 const isEntered = pd.qty > 0;
+                const myAllocation = allocations?.data?.find((a: any) => a.product_id === p.id);
                 
                 return (
                   <div key={p.id} style={{ 
@@ -207,12 +214,19 @@ export default function MarketPurchase() {
                     borderRadius: 8, 
                     marginBottom: 12,
                     background: isEntered ? 'var(--vb-blue-pale)' : '#fff',
-                    borderColor: isEntered ? 'var(--vb-blue)' : 'var(--vb-border)',
+                    borderColor: isEntered ? 'var(--vb-blue)' : myAllocation ? '#f59e0b' : 'var(--vb-border)',
                     overflow: 'hidden'
                   }}>
                     <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--vb-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div>
-                        <div style={{ fontWeight: 700, fontSize: 15, color: '#0f172a' }}>{p.name}</div>
+                        <div style={{ fontWeight: 700, fontSize: 15, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 8 }}>
+                          {p.name}
+                          {myAllocation && (
+                            <span className="vb-badge vb-badge-amber" style={{ fontSize: 10 }}>
+                              Target: {parseFloat(myAllocation.total)} {myAllocation.unit_name}
+                            </span>
+                          )}
+                        </div>
                         {p.name_tamil && <div style={{ fontSize: 13, color: '#64748b', fontFamily: "'Noto Sans Tamil', sans-serif" }}>{p.name_tamil}</div>}
                       </div>
                       {isEntered && <Check size={18} style={{ color: 'var(--vb-blue)' }} />}

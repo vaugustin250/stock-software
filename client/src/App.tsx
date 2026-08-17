@@ -21,6 +21,7 @@ import GodownStockLedger from './pages/GodownStockLedger';
 import PurchaseVsOrdered from './pages/PurchaseVsOrdered';
 import SupplierMaster from './pages/SupplierMaster';
 import PurchaseMenWallet from './pages/PurchaseMenWallet';
+import PurchaseAllocation from './pages/PurchaseAllocation';
 import PurchaseManDashboard from './pages/PurchaseManDashboard';
 import MarketPurchase from './pages/MarketPurchase';
 import WalletHistory from './pages/WalletHistory';
@@ -70,6 +71,7 @@ function App() {
             </Route>
 
             <Route path="warehouse">
+              <Route path="allocations" element={<PurchaseAllocation />} />
               <Route path="wallets" element={<PurchaseMenWallet />} />
             </Route>
 

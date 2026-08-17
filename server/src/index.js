@@ -36,6 +36,7 @@ app.use('/receiving', require('./routes/receiving'));
 app.use('/rates', require('./routes/rates'));
 app.use('/reports', require('./routes/reports'));
 app.use('/wallet', require('./routes/wallet'));
+app.use('/allocation', require('./routes/allocation'));
 
 // Error handling
 app.use((err, req, res, next) => {

@@ -30,12 +30,12 @@ export default function PurchaseAllocation() {
 
   const { data: groups } = useQuery({
     queryKey: ['groups'],
-    queryFn: async () => (await api.get('/masters/group')).data
+    queryFn: async () => (await api.get('/masters/groups')).data
   });
 
   const { data: departments } = useQuery({
     queryKey: ['departments'],
-    queryFn: async () => (await api.get('/masters/department')).data
+    queryFn: async () => (await api.get('/masters/departments')).data
   });
 
   // Initialize state from fetched data

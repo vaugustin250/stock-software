@@ -44,10 +44,10 @@ const navItems: NavItem[] = [
   { name: 'My Wallet',       href: '/purchase-man/wallet',    icon: IndianRupee,  roles: ['PURCHASE_MAN'],                 section: 'Market Purchase' },
   // Admin Masters
   { name: 'Suppliers',       href: '/masters/suppliers',   icon: Store,          roles: ['ADMIN', 'WAREHOUSE'],           section: 'Masters' },
-  { name: 'Products',        href: '/masters/products',    icon: Package,        roles: ['ADMIN'],                        section: 'Masters' },
-  { name: 'Groups',          href: '/masters/groups',      icon: FileSpreadsheet,roles: ['ADMIN'],                        section: 'Masters' },
-  { name: 'Departments',     href: '/masters/departments', icon: FileSpreadsheet,roles: ['ADMIN'],                        section: 'Masters' },
-  { name: 'Units',           href: '/masters/units',       icon: FileSpreadsheet,roles: ['ADMIN'],                        section: 'Masters' },
+  { name: 'Products',        href: '/masters/products',    icon: Package,        roles: ['ADMIN', 'WAREHOUSE'],           section: 'Masters' },
+  { name: 'Groups',          href: '/masters/groups',      icon: FileSpreadsheet,roles: ['ADMIN', 'WAREHOUSE'],           section: 'Masters' },
+  { name: 'Departments',     href: '/masters/departments', icon: FileSpreadsheet,roles: ['ADMIN', 'WAREHOUSE'],           section: 'Masters' },
+  { name: 'Units',           href: '/masters/units',       icon: FileSpreadsheet,roles: ['ADMIN', 'WAREHOUSE'],           section: 'Masters' },
   { name: 'Branches',        href: '/masters/branches',    icon: Settings,       roles: ['ADMIN'],                        section: 'Masters' },
   { name: 'Users',           href: '/masters/users',       icon: Users,          roles: ['ADMIN'],                        section: 'Masters' },
 ];

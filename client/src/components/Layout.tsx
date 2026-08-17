@@ -4,7 +4,7 @@ import {
   Package, Users, Settings, LogOut, FileSpreadsheet,
   ShoppingCart, ClipboardList, Truck, Box, CheckSquare,
   IndianRupee, LineChart, Calculator, BarChart2, Bell,
-  Home, Menu, X, ChevronDown, Activity, Wallet
+  Home, Menu, X, ChevronDown, Activity, Wallet, Store
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';

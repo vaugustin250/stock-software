@@ -24,6 +24,7 @@ router.get('/', requireRole(['WAREHOUSE', 'ADMIN']), async (req, res) => {
       closingStockLines = await db('po_entry_line')
         .select('product_id')
         .sum('qty as total_qty')
+        .sum('unit_qty as total_unit_qty')
         .whereIn('po_entry_id', poIds)
         .groupBy('product_id');
     }
@@ -48,6 +49,7 @@ router.get('/', requireRole(['WAREHOUSE', 'ADMIN']), async (req, res) => {
     let matrix = products.map(prod => {
       const closingRow = closingStockLines.find(c => c.product_id === prod.product_id);
       const total_closing_qty = closingRow ? parseFloat(closingRow.total_qty) : 0;
+      const total_closing_unit_qty = closingRow ? parseFloat(closingRow.total_unit_qty || 0) : 0;
       
       const prodAllocations = {};
       purchaseMen.forEach(pm => {
@@ -58,6 +60,7 @@ router.get('/', requireRole(['WAREHOUSE', 'ADMIN']), async (req, res) => {
       return {
         ...prod,
         total_closing_qty,
+        total_closing_unit_qty,
         allocations: prodAllocations
       };
     });

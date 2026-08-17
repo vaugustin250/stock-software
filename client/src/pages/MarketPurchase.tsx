@@ -27,16 +27,22 @@ export default function MarketPurchase() {
 
   // Products State
   const [searchTerm, setSearchTerm] = useState('');
-  const [purchaseLines, setPurchaseLines] = useState<Record<number, { qty: number, rate: number, unit_id: number, unit_qty: number }>>({});
+  const [purchaseLines, setPurchaseLines] = useState<Record<number, { qty: number, rate: number, total_rate: number, unit_id: number, unit_qty: number }>>({});
   
-  const { data: supplierResults = [] } = useQuery({
-    queryKey: ['suppliers_search', supplierSearch],
+  const { data: allSuppliers = [] } = useQuery({
+    queryKey: ['all_suppliers'],
     queryFn: async () => {
-      if (!supplierSearch.trim()) return [];
-      const res = await api.get(`/masters/suppliers?q=${encodeURIComponent(supplierSearch)}`);
+      const res = await api.get(`/masters/suppliers`);
       return res.data;
-    },
-    enabled: supplierSearch.trim().length > 0,
+    }
+  });
+
+  const supplierResults = allSuppliers.filter((s: any) => {
+    if (!supplierSearch.trim()) return true;
+    const term = supplierSearch.toLowerCase();
+    return (s.name || '').toLowerCase().includes(term) ||
+      (s.shop_no || '').toLowerCase().includes(term) ||
+      (s.hall || '').toLowerCase().includes(term);
   });
 
   const { data: products } = useQuery({
@@ -87,18 +93,31 @@ export default function MarketPurchase() {
     }
   });
 
-  const handleChange = (pid: number, field: 'qty' | 'rate' | 'unit_qty', val: string) => {
+  const handleChange = (pid: number, field: 'qty' | 'rate' | 'unit_qty' | 'total_rate', val: string) => {
     const num = parseFloat(val);
-    setPurchaseLines(prev => ({
-      ...prev,
-      [pid]: { ...(prev[pid] || { qty: 0, rate: 0, unit_id: 1, unit_qty: 0 }), [field]: isNaN(num) ? 0 : num }
-    }));
+    const value = isNaN(num) ? 0 : num;
+    
+    setPurchaseLines(prev => {
+      const current = prev[pid] || { qty: 0, rate: 0, total_rate: 0, unit_id: 1, unit_qty: 0 };
+      const updated = { ...current, [field]: value };
+      
+      if (field === 'qty') {
+        if (updated.qty > 0 && updated.rate > 0) updated.total_rate = updated.qty * updated.rate;
+        else if (updated.qty > 0 && updated.total_rate > 0) updated.rate = updated.total_rate / updated.qty;
+      } else if (field === 'rate') {
+        updated.total_rate = updated.qty * updated.rate;
+      } else if (field === 'total_rate') {
+        if (updated.qty > 0) updated.rate = updated.total_rate / updated.qty;
+      }
+      
+      return { ...prev, [pid]: updated };
+    });
   };
 
   const handleUnitChange = (pid: number, unit_id: number) => {
     setPurchaseLines(prev => ({
       ...prev,
-      [pid]: { ...(prev[pid] || { qty: 0, rate: 0, unit_qty: 0 }), unit_id }
+      [pid]: { ...(prev[pid] || { qty: 0, rate: 0, total_rate: 0, unit_qty: 0 }), unit_id }
     }));
   };
 
@@ -232,7 +251,7 @@ export default function MarketPurchase() {
                       {isEntered && <Check size={18} style={{ color: 'var(--vb-blue)' }} />}
                     </div>
                     
-                    <div style={{ padding: 12, display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+                    <div style={{ padding: 12, display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8 }}>
                       <div>
                         <label style={{ display: 'block', fontSize: 11, color: '#64748b', marginBottom: 4 }}>Unit</label>
                         <select
@@ -276,6 +295,17 @@ export default function MarketPurchase() {
                           style={{ height: 36, fontSize: 14 }}
                           value={pd.rate || ''}
                           onChange={e => handleChange(p.id, 'rate', e.target.value)}
+                          placeholder="₹ 0.00"
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: 11, color: '#64748b', marginBottom: 4 }}>Total Amt</label>
+                        <input
+                          type="number"
+                          className="vb-input"
+                          style={{ height: 36, fontSize: 14 }}
+                          value={pd.total_rate || ''}
+                          onChange={e => handleChange(p.id, 'total_rate', e.target.value)}
                           placeholder="₹ 0.00"
                         />
                       </div>

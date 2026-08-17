@@ -107,7 +107,7 @@ router.post('/entry', requireRole(['ADMIN', 'WAREHOUSE', 'PURCHASE_MAN']), async
     }
 
     await trx.commit();
-    res.json({ success: true, purchase_id: purchase.id });
+    res.json({ success: true, purchase_id: purchaseId });
   } catch (err) {
     await trx.rollback();
     res.status(500).json({ error: err.message });

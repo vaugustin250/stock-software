@@ -129,8 +129,8 @@ export default function PurchaseAllocation() {
               <tr>
                 <th style={{ minWidth: 200, position: 'sticky', left: 0, zIndex: 10 }}>Product</th>
                 <th style={{ width: 100, textAlign: 'center' }}>Unit</th>
-                <th style={{ width: 120, textAlign: 'right' }}>Closing Stock</th>
-                <th style={{ width: 120, textAlign: 'right', borderRight: '2px solid var(--vb-border)' }}>Total Assigned</th>
+                <th style={{ width: 120, textAlign: 'right' }}>Closing Stock (KG)</th>
+                <th style={{ width: 120, textAlign: 'right', borderRight: '2px solid var(--vb-border)' }}>Total Assigned (KG)</th>
                 {purchaseMen.map((pm: any) => (
                   <th key={pm.id} style={{ minWidth: 120, textAlign: 'center', background: 'var(--vb-blue-pale)', color: 'var(--vb-blue)' }}>
                     {pm.username}
@@ -162,8 +162,15 @@ export default function PurchaseAllocation() {
                       <td style={{ textAlign: 'center' }}>
                         <span className="vb-badge vb-badge-gray">{row.unit_name}</span>
                       </td>
-                      <td style={{ textAlign: 'right', fontWeight: 700, fontSize: 15, color: '#f59e0b' }}>
-                        {row.total_closing_qty}
+                      <td style={{ textAlign: 'right' }}>
+                        <div style={{ fontWeight: 700, fontSize: 15, color: '#f59e0b' }}>
+                          {row.total_closing_qty}
+                        </div>
+                        {row.total_closing_unit_qty > 0 && (
+                          <div style={{ fontSize: 12, color: '#64748b' }}>
+                            ({row.total_closing_unit_qty} units)
+                          </div>
+                        )}
                       </td>
                       <td style={{ textAlign: 'right', borderRight: '2px solid var(--vb-border)' }}>
                         <span style={{ 

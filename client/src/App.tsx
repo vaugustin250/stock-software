@@ -25,6 +25,7 @@ import PurchaseAllocation from './pages/PurchaseAllocation';
 import PurchaseManDashboard from './pages/PurchaseManDashboard';
 import MarketPurchase from './pages/MarketPurchase';
 import WalletHistory from './pages/WalletHistory';
+import WarehousePurchases from './pages/WarehousePurchases';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -73,6 +74,7 @@ function App() {
             <Route path="warehouse">
               <Route path="allocations" element={<PurchaseAllocation />} />
               <Route path="wallets" element={<PurchaseMenWallet />} />
+              <Route path="purchases" element={<WarehousePurchases />} />
             </Route>
 
             <Route path="purchase-man">

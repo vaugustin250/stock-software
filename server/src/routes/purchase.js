@@ -39,6 +39,45 @@ router.get('/entry', requireRole(['ADMIN', 'WAREHOUSE', 'PURCHASE_MAN']), async 
   }
 });
 
+// GET /purchase/men-summary - Get summary of all purchase men purchases
+router.get('/men-summary', requireRole(['ADMIN', 'WAREHOUSE']), async (req, res) => {
+  try {
+    const entry_date = req.query.date || new Date().toISOString().split('T')[0];
+    
+    const lines = await db('purchase_entry')
+      .join('purchase_entry_line', 'purchase_entry.id', 'purchase_entry_line.purchase_entry_id')
+      .join('app_user', 'purchase_entry.created_by', 'app_user.id')
+      .join('product', 'purchase_entry_line.product_id', 'product.id')
+      .join('unit', 'purchase_entry_line.unit_id', 'unit.id')
+      .leftJoin('supplier', 'purchase_entry.supplier_id', 'supplier.id')
+      .where('purchase_entry.entry_date', entry_date)
+      .andWhere('app_user.role', 'PURCHASE_MAN')
+      .select(
+        'purchase_entry_line.product_id',
+        'product.name as product_name',
+        'unit.name as unit_name',
+        'purchase_entry_line.unit_id',
+        'app_user.username as purchase_man_name',
+        'supplier.name as supplier_name'
+      )
+      .sum('purchase_entry_line.qty_purchased as total_qty')
+      .sum('purchase_entry_line.unit_qty as total_unit_qty')
+      .groupBy(
+        'purchase_entry_line.product_id', 
+        'product.name', 
+        'unit.name',
+        'purchase_entry_line.unit_id',
+        'app_user.username',
+        'supplier.name'
+      )
+      .orderBy('product.name');
+
+    res.json(lines);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // POST /purchase/entry - Save/update today's purchase
 router.post('/entry', requireRole(['ADMIN', 'WAREHOUSE', 'PURCHASE_MAN']), async (req, res) => {
   const trx = await db.transaction();

@@ -22,11 +22,12 @@ router.get('/', requireRole(['WAREHOUSE', 'ADMIN']), async (req, res) => {
     let closingStockLines = [];
     if (poIds.length > 0) {
       closingStockLines = await db('po_entry_line')
-        .select('product_id')
-        .sum('qty as total_qty')
-        .sum('unit_qty as total_unit_qty')
+        .join('unit', 'po_entry_line.unit_id', 'unit.id')
+        .select('po_entry_line.product_id', 'unit.name as closing_unit_name')
+        .sum('po_entry_line.qty as total_qty')
+        .sum('po_entry_line.unit_qty as total_unit_qty')
         .whereIn('po_entry_id', poIds)
-        .groupBy('product_id');
+        .groupBy('po_entry_line.product_id', 'unit.name');
     }
 
     // 3. Get all active products
@@ -50,6 +51,7 @@ router.get('/', requireRole(['WAREHOUSE', 'ADMIN']), async (req, res) => {
       const closingRow = closingStockLines.find(c => c.product_id === prod.product_id);
       const total_closing_qty = closingRow ? parseFloat(closingRow.total_qty) : 0;
       const total_closing_unit_qty = closingRow ? parseFloat(closingRow.total_unit_qty || 0) : 0;
+      const closing_unit_name = closingRow ? closingRow.closing_unit_name : '';
       
       const prodAllocations = {};
       purchaseMen.forEach(pm => {
@@ -61,6 +63,7 @@ router.get('/', requireRole(['WAREHOUSE', 'ADMIN']), async (req, res) => {
         ...prod,
         total_closing_qty,
         total_closing_unit_qty,
+        closing_unit_name,
         allocations: prodAllocations
       };
     });

@@ -168,7 +168,7 @@ export default function PurchaseAllocation() {
                         </div>
                         {row.total_closing_unit_qty > 0 && (
                           <div style={{ fontSize: 12, color: '#64748b' }}>
-                            ({row.total_closing_unit_qty} units)
+                            ({row.total_closing_unit_qty} {row.closing_unit_name || 'units'})
                           </div>
                         )}
                       </td>

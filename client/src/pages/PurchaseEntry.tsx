@@ -57,10 +57,10 @@ const PurchaseEntry = () => {
     },
   });
 
-  const { data: combinedPO } = useQuery({
-    queryKey: ['po_combined', new Date().toISOString().split('T')[0]],
+  const { data: purchasedItems = [] } = useQuery({
+    queryKey: ['warehouse_purchases', new Date().toISOString().split('T')[0]],
     queryFn: async () => {
-      const res = await api.get(`/po/combined-report?date=${new Date().toISOString().split('T')[0]}`);
+      const res = await api.get(`/purchase/men-summary?date=${new Date().toISOString().split('T')[0]}`);
       return res.data;
     }
   });
@@ -133,9 +133,13 @@ const PurchaseEntry = () => {
     saveMutation.mutate(lines);
   };
 
-  const requiredMap = new Map();
-  combinedPO?.data?.forEach((row: any) => {
-    requiredMap.set(row.product_id, row.total);
+  const purchasedMap = new Map();
+  purchasedItems.forEach((row: any) => {
+    purchasedMap.set(row.product_id, {
+      qty: row.total_qty,
+      unit_qty: row.total_unit_qty,
+      unit_name: row.unit_name
+    });
   });
 
   const baseFiltered = (products || []).filter((p: any) => {
@@ -148,16 +152,18 @@ const PurchaseEntry = () => {
       (p.code || '').toLowerCase().includes(term);
   });
 
-  const filteredProducts = showEnteredOnly
+  const filteredProducts = (showEnteredOnly
     ? baseFiltered.filter((p: any) => (purchaseLines[p.id]?.qty || 0) > 0 || (purchaseLines[p.id]?.unit_qty || 0) > 0)
-    : baseFiltered;
+    : baseFiltered
+  ).sort((a: any, b: any) => {
+    const aPurchased = purchasedMap.has(a.id);
+    const bPurchased = purchasedMap.has(b.id);
+    if (aPurchased && !bPurchased) return -1;
+    if (!aPurchased && bPurchased) return 1;
+    return 0;
+  });
 
   const enteredCount = Object.values(purchaseLines).filter(l => l.qty > 0 || l.unit_qty > 0).length;
-
-  const combinedTotal = (todayPurchase as any)?.combined_total;
-  const combinedText = combinedTotal
-    ? Object.entries(combinedTotal as Record<string, any>).slice(0, 3).map(([k, v]) => `${k}: ${v}`).join(' · ')
-    : null;
 
   return (
     <div className="vb-page">
@@ -190,14 +196,6 @@ const PurchaseEntry = () => {
       )}
 
 
-
-      {/* Info banner */}
-      {combinedText && (
-        <div className="vb-info-banner">
-          <Info size={16} />
-          Combined order total: {combinedText} — tap to view full list
-        </div>
-      )}
 
       {/* Table */}
       <div className="vb-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -276,7 +274,7 @@ const PurchaseEntry = () => {
                 if (!inputRefs.current[product.id]) inputRefs.current[product.id] = { qty: null, rate: null, unit_qty: null };
                 const line = purchaseLines[product.id];
                 const hasQty = line?.qty && line.qty > 0;
-                const closingStock = requiredMap.get(product.id) || 0;
+                const purchasedData = purchasedMap.get(product.id);
                 return (
                   <div
                     key={product.id}
@@ -288,9 +286,16 @@ const PurchaseEntry = () => {
                     {product.name_tamil && (
                       <span className="vb-mobile-card-name-en">{product.name}</span>
                     )}
-                    {closingStock > 0 && (
+                    {purchasedData && (
                       <div className="vb-mobile-card-chips">
-                        <span className="vb-chip vb-chip-blue" style={{ background: '#f8fafc', color: '#475569', border: '1px solid #cbd5e1' }}>📦 Closing Stock: {closingStock}</span>
+                        <span className="vb-chip vb-chip-blue" style={{ background: '#e0f2fe', color: '#0369a1', border: '1px solid #7dd3fc' }}>
+                          🛒 Purchased: {purchasedData.qty} KG {purchasedData.unit_qty > 0 && `(${purchasedData.unit_qty} ${purchasedData.unit_name})`}
+                        </span>
+                        {hasQty && line.qty < purchasedData.qty && (
+                          <span className="vb-chip vb-chip-red" style={{ background: '#fef2f2', color: '#ef4444', border: '1px solid #fecaca' }}>
+                            ⚠ Deficient: {parseFloat((purchasedData.qty - line.qty).toFixed(3))} KG
+                          </span>
+                        )}
                       </div>
                     )}
                     <div className="vb-mobile-card-inputs">
@@ -318,7 +323,7 @@ const PurchaseEntry = () => {
                         </select>
                       </div>
                       <div className="vb-mobile-qty-wrap" style={{ flex: 1 }}>
-                        <span className="vb-mobile-qty-label">Purchased Qty (KG)</span>
+                        <span className="vb-mobile-qty-label">Received Qty (KG)</span>
                         <input
                           type="number" min="0" step="0.01" inputMode="decimal" enterKeyHint="next"
                           ref={(el): void => { inputRefs.current[product.id].qty = el; }}
@@ -353,8 +358,8 @@ const PurchaseEntry = () => {
                   <th>Item</th>
                   <th style={{ textAlign: 'right', width: 90 }}>Unit Qty</th>
                   <th style={{ textAlign: 'center', width: 80 }}>Unit</th>
-                  <th style={{ textAlign: 'right', width: 100 }}>Total Closing Stock</th>
-                  <th style={{ textAlign: 'right', width: 150 }}>Purchased Qty (KG)</th>
+                  <th style={{ textAlign: 'right', width: 150 }}>Purchased Qty</th>
+                  <th style={{ textAlign: 'right', width: 150 }}>Received Qty (KG)</th>
                   <th style={{ textAlign: 'right', width: 150 }}>Rate ₹ (Optional)</th>
                 </tr>
               </thead>
@@ -363,7 +368,7 @@ const PurchaseEntry = () => {
                   if (!inputRefs.current[product.id]) inputRefs.current[product.id] = { qty: null, rate: null, unit_qty: null };
                   const line = purchaseLines[product.id];
                   const hasQty = line?.qty && line.qty > 0;
-                  const closingStock = requiredMap.get(product.id) || 0;
+                  const purchasedData = purchasedMap.get(product.id);
                   const rowStyle = hasQty ? 'var(--vb-green-pale)' : undefined;
 
                   return (
@@ -396,10 +401,24 @@ const PurchaseEntry = () => {
                           ))}
                         </select>
                       </td>
-                      <td style={{ textAlign: 'right', fontWeight: 800, fontSize: 15, color: '#475569' }}>
-                        {closingStock > 0 ? closingStock : '—'}
+                      <td style={{ textAlign: 'right', fontSize: 14, color: '#475569' }}>
+                        {purchasedData ? (
+                          <>
+                            <div style={{ fontWeight: 700 }}>{purchasedData.qty} KG</div>
+                            {purchasedData.unit_qty > 0 && (
+                              <div style={{ fontSize: 12, color: '#64748b' }}>
+                                ({purchasedData.unit_qty} {purchasedData.unit_name})
+                              </div>
+                            )}
+                          </>
+                        ) : '—'}
                       </td>
                       <td style={{ textAlign: 'right' }}>
+                        {hasQty && purchasedData && line.qty < purchasedData.qty && (
+                          <div style={{ fontSize: 11, color: '#ef4444', marginBottom: 4, fontWeight: 600 }}>
+                            Deficient: {parseFloat((purchasedData.qty - line.qty).toFixed(3))} KG
+                          </div>
+                        )}
                         <input
                           type="number" min="0" step="0.01" inputMode="decimal"
                           ref={(el): void => { inputRefs.current[product.id].qty = el; }}

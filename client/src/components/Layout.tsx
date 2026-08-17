@@ -30,13 +30,13 @@ const navItems: NavItem[] = [
   // Warehouse
   { name: 'Closing Stock Report', href: '/po/combined-report', icon: ClipboardList, roles: ['WAREHOUSE', 'ADMIN'],       section: 'Warehouse' },
   { name: 'Stock Inward Entry',  href: '/inventory/purchase',  icon: Box,            roles: ['WAREHOUSE', 'ADMIN'],           section: 'Warehouse' },
-  { name: 'Assign Purchases',href: '/warehouse/allocations', icon: CheckSquare,  roles: ['WAREHOUSE', 'ADMIN'],           section: 'Warehouse' },
+  { name: 'Assign Purchases',href: '/warehouse/allocations', icon: CheckSquare,  roles: ['WAREHOUSE', 'ADMIN'],           section: 'Purchase Man' },
   { name: 'Send Stock',      href: '/inventory/transfer',  icon: Truck,          roles: ['WAREHOUSE', 'ADMIN'],           section: 'Warehouse' },
   { name: 'Rate Master',     href: '/rates/master',        icon: IndianRupee,    roles: ['WAREHOUSE', 'ADMIN'],           section: 'Warehouse' },
   { name: 'Rate History',    href: '/rates/weekly',        icon: LineChart,      roles: ['WAREHOUSE', 'ADMIN'],           section: 'Warehouse' },
   { name: 'Godown Stock',    href: '/reports/stock-ledger',icon: Calculator,     roles: ['WAREHOUSE', 'ADMIN'],           section: 'Warehouse' },
   { name: 'Variance Report', href: '/reports/variance',    icon: BarChart2,      roles: ['WAREHOUSE', 'ADMIN'],           section: 'Warehouse' },
-  { name: 'Purchase Men Wallet', href: '/warehouse/wallets', icon: Wallet,       roles: ['WAREHOUSE', 'ADMIN'],           section: 'Warehouse' },
+  { name: 'Purchase Men Wallet', href: '/warehouse/wallets', icon: Wallet,       roles: ['WAREHOUSE', 'ADMIN'],           section: 'Purchase Man' },
   // Purchase Man
   { name: 'My Dashboard',    href: '/purchase-man/dashboard', icon: Home,        roles: ['PURCHASE_MAN'],                 section: 'Market Purchase' },
   { name: 'Buy Stock',       href: '/purchase-man/market',    icon: ShoppingCart, roles: ['PURCHASE_MAN'],                 section: 'Market Purchase' },

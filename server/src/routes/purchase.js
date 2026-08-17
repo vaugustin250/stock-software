@@ -6,56 +6,104 @@ const { authenticate, requireRole } = require('../middleware/auth');
 router.use(authenticate);
 
 // GET /purchase/entry - Get today's purchase (or by date)
-router.get('/entry', requireRole(['ADMIN', 'WAREHOUSE']), async (req, res) => {
+router.get('/entry', requireRole(['ADMIN', 'WAREHOUSE', 'PURCHASE_MAN']), async (req, res) => {
   try {
     const entry_date = req.query.date || new Date().toISOString().split('T')[0];
 
-    const purchase = await db('purchase_entry').where({ entry_date }).first();
-    if (!purchase) return res.json({ lines: [] });
+    const purchases = await db('purchase_entry').where({ entry_date });
+    if (purchases.length === 0) return res.json({ lines: [] });
 
+    const purchaseIds = purchases.map(p => p.id);
     const lines = await db('purchase_entry_line')
       .join('product', 'purchase_entry_line.product_id', 'product.id')
       .select('purchase_entry_line.*', 'product.name as product_name', 'product.group_id')
-      .where({ purchase_entry_id: purchase.id });
+      .whereIn('purchase_entry_id', purchaseIds);
 
-    res.json({ ...purchase, lines });
+    // Aggregate lines by product_id and unit_id so the Godown grid sees a consolidated view
+    const aggregated = {};
+    for (const l of lines) {
+      const key = `${l.product_id}_${l.unit_id}`;
+      if (!aggregated[key]) {
+        aggregated[key] = { ...l };
+      } else {
+        aggregated[key].qty_purchased = parseFloat(aggregated[key].qty_purchased) + parseFloat(l.qty_purchased);
+        aggregated[key].unit_qty = parseFloat(aggregated[key].unit_qty || 0) + parseFloat(l.unit_qty || 0);
+        // Rate might be an average or just the latest? Let's take the latest or max for simplicity in the grid
+        aggregated[key].rate = l.rate || aggregated[key].rate; 
+      }
+    }
+
+    res.json({ id: purchaseIds[0], entry_date, lines: Object.values(aggregated) });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
 // POST /purchase/entry - Save/update today's purchase
-router.post('/entry', requireRole(['ADMIN', 'WAREHOUSE']), async (req, res) => {
+router.post('/entry', requireRole(['ADMIN', 'WAREHOUSE', 'PURCHASE_MAN']), async (req, res) => {
   const trx = await db.transaction();
   try {
     const entry_date = req.body.date || new Date().toISOString().split('T')[0];
-    const { lines } = req.body; // Array of { product_id, unit_id, qty_purchased, rate }
+    const { lines, supplier_id } = req.body;
 
-    let purchase = await trx('purchase_entry').where({ entry_date }).first();
+    let purchaseId;
+    let totalAmount = 0;
 
-    if (!purchase) {
+    if (req.user.role === 'PURCHASE_MAN') {
+      // Purchase man always creates a new entry for their specific transaction
       const [inserted] = await trx('purchase_entry')
-        .insert({ entry_date, created_by: req.user.id })
+        .insert({ entry_date, created_by: req.user.id, supplier_id: supplier_id || null })
         .returning('*');
-      purchase = inserted;
+      purchaseId = inserted.id;
     } else {
-      // Clear existing lines to replace (simplest update logic for grid)
-      await trx('purchase_entry_line').where({ purchase_entry_id: purchase.id }).delete();
+      // Godown overwrites their default entry (with no supplier_id usually)
+      let purchase = await trx('purchase_entry').where({ entry_date, created_by: req.user.id }).first();
+      if (!purchase) {
+        const [inserted] = await trx('purchase_entry')
+          .insert({ entry_date, created_by: req.user.id, supplier_id: null })
+          .returning('*');
+        purchaseId = inserted.id;
+      } else {
+        purchaseId = purchase.id;
+        await trx('purchase_entry_line').where({ purchase_entry_id: purchaseId }).delete();
+      }
     }
 
     if (lines && lines.length > 0) {
-      const linesToInsert = lines.filter(l => l.qty_purchased > 0 || l.unit_qty > 0).map(l => ({
-        purchase_entry_id: purchase.id,
-        product_id: l.product_id,
-        unit_id: l.unit_id,
-        qty_purchased: l.qty_purchased,
-        unit_qty: l.unit_qty || 0,
-        rate: l.rate || null
-      }));
+      const linesToInsert = lines.filter(l => l.qty_purchased > 0 || l.unit_qty > 0).map(l => {
+        const qty = parseFloat(l.qty_purchased || 0);
+        const rate = parseFloat(l.rate || 0);
+        totalAmount += (qty * rate); // calculate total spent
+        
+        return {
+          purchase_entry_id: purchaseId,
+          product_id: l.product_id,
+          unit_id: l.unit_id,
+          qty_purchased: qty,
+          unit_qty: l.unit_qty || 0,
+          rate: rate || null
+        };
+      });
       
       if (linesToInsert.length > 0) {
         await trx('purchase_entry_line').insert(linesToInsert);
       }
+    }
+
+    // Deduct from wallet if Purchase Man
+    if (req.user.role === 'PURCHASE_MAN' && totalAmount > 0) {
+      await trx('wallet_transaction').insert({
+        user_id: req.user.id,
+        amount: -totalAmount,
+        type: 'DEBIT',
+        description: `Market Purchase (Supplier ${supplier_id || 'Unknown'})`,
+        reference_id: purchaseId,
+        created_by: req.user.id
+      });
+
+      await trx('purchase_man_profile')
+        .where({ user_id: req.user.id })
+        .decrement('balance', totalAmount);
     }
 
     await trx.commit();

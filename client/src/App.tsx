@@ -20,6 +20,10 @@ import RateWeeklyReport from './pages/RateWeeklyReport';
 import GodownStockLedger from './pages/GodownStockLedger';
 import PurchaseVsOrdered from './pages/PurchaseVsOrdered';
 import SupplierMaster from './pages/SupplierMaster';
+import PurchaseMenWallet from './pages/PurchaseMenWallet';
+import PurchaseManDashboard from './pages/PurchaseManDashboard';
+import MarketPurchase from './pages/MarketPurchase';
+import WalletHistory from './pages/WalletHistory';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -63,6 +67,16 @@ function App() {
             <Route path="reports">
               <Route path="stock-ledger" element={<GodownStockLedger />} />
               <Route path="variance" element={<PurchaseVsOrdered />} />
+            </Route>
+
+            <Route path="warehouse">
+              <Route path="wallets" element={<PurchaseMenWallet />} />
+            </Route>
+
+            <Route path="purchase-man">
+              <Route path="dashboard" element={<PurchaseManDashboard />} />
+              <Route path="market" element={<MarketPurchase />} />
+              <Route path="wallet" element={<WalletHistory />} />
             </Route>
 
             <Route path="masters">

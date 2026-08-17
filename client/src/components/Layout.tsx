@@ -4,7 +4,7 @@ import {
   Package, Users, Settings, LogOut, FileSpreadsheet,
   ShoppingCart, ClipboardList, Truck, Box, CheckSquare,
   IndianRupee, LineChart, Calculator, BarChart2, Bell,
-  Home, Menu, X, ChevronDown, Activity
+  Home, Menu, X, ChevronDown, Activity, Wallet
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -35,6 +35,11 @@ const navItems: NavItem[] = [
   { name: 'Rate History',    href: '/rates/weekly',        icon: LineChart,      roles: ['WAREHOUSE', 'ADMIN'],           section: 'Warehouse' },
   { name: 'Godown Stock',    href: '/reports/stock-ledger',icon: Calculator,     roles: ['WAREHOUSE', 'ADMIN'],           section: 'Warehouse' },
   { name: 'Variance Report', href: '/reports/variance',    icon: BarChart2,      roles: ['WAREHOUSE', 'ADMIN'],           section: 'Warehouse' },
+  { name: 'Purchase Men Wallet', href: '/warehouse/wallets', icon: Wallet,       roles: ['WAREHOUSE', 'ADMIN'],           section: 'Warehouse' },
+  // Purchase Man
+  { name: 'My Dashboard',    href: '/purchase-man/dashboard', icon: Home,        roles: ['PURCHASE_MAN'],                 section: 'Market Purchase' },
+  { name: 'Buy Stock',       href: '/purchase-man/market',    icon: ShoppingCart, roles: ['PURCHASE_MAN'],                 section: 'Market Purchase' },
+  { name: 'My Wallet',       href: '/purchase-man/wallet',    icon: IndianRupee,  roles: ['PURCHASE_MAN'],                 section: 'Market Purchase' },
   // Admin Masters
   { name: 'Products',        href: '/masters/products',    icon: Package,        roles: ['ADMIN'],                        section: 'Masters' },
   { name: 'Groups',          href: '/masters/groups',      icon: FileSpreadsheet,roles: ['ADMIN'],                        section: 'Masters' },
@@ -57,6 +62,12 @@ const warehouseBottomNav: NavItem[] = [
   { name: 'Send',          href: '/inventory/transfer', icon: Truck,        roles: ['WAREHOUSE', 'ADMIN'] },
   { name: 'Closing Stock', href: '/po/combined-report', icon: ClipboardList,roles: ['WAREHOUSE', 'ADMIN'] },
   { name: 'Rates',         href: '/rates/view',         icon: IndianRupee,  roles: ['WAREHOUSE', 'ADMIN'] },
+];
+
+const purchaseManBottomNav: NavItem[] = [
+  { name: 'Dashboard',     href: '/purchase-man/dashboard', icon: Home,         roles: ['PURCHASE_MAN'] },
+  { name: 'Buy Stock',     href: '/purchase-man/market',    icon: ShoppingCart, roles: ['PURCHASE_MAN'] },
+  { name: 'Wallet',        href: '/purchase-man/wallet',    icon: IndianRupee,  roles: ['PURCHASE_MAN'] },
 ];
 
 const Layout = () => {
@@ -85,6 +96,8 @@ const Layout = () => {
 
   const filteredBottom = role === 'WAREHOUSE'
     ? warehouseBottomNav
+    : role === 'PURCHASE_MAN'
+    ? purchaseManBottomNav
     : branchBottomNav.filter(item => item.roles.includes(role));
 
   const handleLogout = () => {

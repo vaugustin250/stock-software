@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import {
@@ -62,6 +62,11 @@ const TileCard = ({
 const Dashboard = () => {
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const role = user.role || 'BRANCH';
+  
+  if (role === 'PURCHASE_MAN') {
+    return <Navigate to="/purchase-man/dashboard" replace />;
+  }
+  
   const name = user.username || 'User';
   const greeting = getGreeting();
   const today = new Date().toLocaleDateString('en-IN', {

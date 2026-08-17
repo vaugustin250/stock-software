@@ -247,9 +247,17 @@ router.get('/branches', requireRole(['ADMIN', 'WAREHOUSE', 'BRANCH']), async (re
 router.use('/products', createCrudRouter('product'));
 
 // Special handlers for User (password hashing)
-router.get('/users', requireRole(['ADMIN']), async (req, res) => {
+router.get('/users', requireRole(['ADMIN', 'WAREHOUSE']), async (req, res) => {
   try {
-    const users = await db('app_user').select('id', 'username', 'role', 'branch_id', 'is_active');
+    let query = db('app_user')
+      .leftJoin('purchase_man_profile as pmp', 'app_user.id', 'pmp.user_id')
+      .select('app_user.id', 'app_user.username', 'app_user.role', 'app_user.branch_id', 'app_user.is_active',
+              'pmp.phone', 'pmp.whatsapp', 'pmp.address', 'pmp.balance');
+              
+    if (req.query.role) {
+      query = query.where('app_user.role', req.query.role);
+    }
+    const users = await query;
     res.json(users);
   } catch (err) {
     return handleDbError(err, res);
@@ -259,9 +267,19 @@ router.get('/users', requireRole(['ADMIN']), async (req, res) => {
 const bcrypt = require('bcryptjs');
 router.post('/users', requireRole(['ADMIN']), async (req, res) => {
   try {
-    const { username, password, role, branch_id } = req.body;
+    const { username, password, role, branch_id, phone, whatsapp, address } = req.body;
     const password_hash = await bcrypt.hash(password, 10);
     const [user] = await db('app_user').insert({ username, password_hash, role, branch_id }).returning(['id', 'username', 'role', 'branch_id']);
+    
+    if (role === 'PURCHASE_MAN') {
+      await db('purchase_man_profile').insert({
+        user_id: user.id,
+        phone: phone || null,
+        whatsapp: whatsapp || null,
+        address: address || null
+      });
+    }
+    
     res.json(user);
   } catch (err) {
     return handleDbError(err, res);
@@ -271,7 +289,7 @@ router.post('/users', requireRole(['ADMIN']), async (req, res) => {
 router.put('/users/:id', requireRole(['ADMIN']), async (req, res) => {
   try {
     const { id } = req.params;
-    const { username, password, role, branch_id } = req.body;
+    const { username, password, role, branch_id, phone, whatsapp, address } = req.body;
     const updateData = { username, role, branch_id };
     
     if (password) {
@@ -279,6 +297,16 @@ router.put('/users/:id', requireRole(['ADMIN']), async (req, res) => {
     }
     
     const [user] = await db('app_user').where({ id }).update(updateData).returning(['id', 'username', 'role', 'branch_id']);
+    
+    if (role === 'PURCHASE_MAN') {
+      const existing = await db('purchase_man_profile').where({ user_id: id }).first();
+      if (existing) {
+        await db('purchase_man_profile').where({ user_id: id }).update({ phone, whatsapp, address });
+      } else {
+        await db('purchase_man_profile').insert({ user_id: id, phone, whatsapp, address });
+      }
+    }
+    
     res.json(user);
   } catch (err) {
     return handleDbError(err, res);

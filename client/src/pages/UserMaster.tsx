@@ -12,7 +12,8 @@ export default function UserMaster() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [formData, setFormData] = useState({ 
-    username: '', password: '', role: 'BRANCH', branch_id: '' 
+    username: '', password: '', role: 'BRANCH', branch_id: '',
+    phone: '', whatsapp: '', address: ''
   });
 
   const { data: users, isLoading, isError, refetch } = useQuery({
@@ -60,6 +61,7 @@ export default function UserMaster() {
     ADMIN: 'vb-badge-red',
     WAREHOUSE: 'vb-badge-amber',
     BRANCH: 'vb-badge-blue',
+    PURCHASE_MAN: 'vb-badge-green',
   };
 
   const filtered = users?.filter((u: any) =>
@@ -73,11 +75,14 @@ export default function UserMaster() {
         username: user.username, 
         password: '', // Don't prepopulate password 
         role: user.role, 
-        branch_id: user.branch_id?.toString() || '' 
+        branch_id: user.branch_id?.toString() || '',
+        phone: user.phone || '',
+        whatsapp: user.whatsapp || '',
+        address: user.address || ''
       });
     } else {
       setEditingId(null);
-      setFormData({ username: '', password: '', role: 'BRANCH', branch_id: '' });
+      setFormData({ username: '', password: '', role: 'BRANCH', branch_id: '', phone: '', whatsapp: '', address: '' });
     }
     setIsModalOpen(true);
   };
@@ -248,16 +253,17 @@ export default function UserMaster() {
             />
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-            <div>
+            <div className="vb-field">
               <label className="vb-label">Role</label>
-              <select 
-                className="vb-input" 
+              <select
+                className="vb-select"
                 value={formData.role}
-                onChange={e => setFormData({...formData, role: e.target.value})}
+                onChange={e => setFormData({ ...formData, role: e.target.value })}
               >
-                <option value="BRANCH">BRANCH</option>
-                <option value="WAREHOUSE">WAREHOUSE</option>
-                <option value="ADMIN">ADMIN</option>
+                <option value="BRANCH">Branch Level (Order Entry)</option>
+                <option value="WAREHOUSE">Godown / Warehouse</option>
+                <option value="PURCHASE_MAN">Purchase Man (Market Buyer)</option>
+                <option value="ADMIN">Admin (Full Access)</option>
               </select>
             </div>
             <div>
@@ -274,7 +280,7 @@ export default function UserMaster() {
                 <option value="">{formData.role === 'ADMIN' ? 'None (Admin)' : 'Select...'}</option>
                 {branches
                   ?.filter((b: any) => {
-                    if (formData.role === 'WAREHOUSE') return b.type === 'GODOWN';
+                    if (formData.role === 'WAREHOUSE' || formData.role === 'PURCHASE_MAN') return b.type === 'GODOWN';
                     if (formData.role === 'BRANCH') return b.type === 'BRANCH';
                     return false;
                   })
@@ -284,6 +290,42 @@ export default function UserMaster() {
               </select>
             </div>
           </div>
+          
+          {formData.role === 'PURCHASE_MAN' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 16 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                <div>
+                  <label className="vb-label">Phone Number</label>
+                  <input
+                    type="text"
+                    className="vb-input"
+                    value={formData.phone}
+                    onChange={e => setFormData({ ...formData, phone: e.target.value })}
+                    placeholder="E.g. 9876543210"
+                  />
+                </div>
+                <div>
+                  <label className="vb-label">WhatsApp Number</label>
+                  <input
+                    type="text"
+                    className="vb-input"
+                    value={formData.whatsapp}
+                    onChange={e => setFormData({ ...formData, whatsapp: e.target.value })}
+                    placeholder="E.g. 9876543210"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="vb-label">Address</label>
+                <textarea
+                  className="vb-input"
+                  value={formData.address}
+                  onChange={e => setFormData({ ...formData, address: e.target.value })}
+                  rows={2}
+                />
+              </div>
+            </div>
+          )}
           
           {saveMutation.isError && (
             <div className="vb-error-banner" style={{ marginTop: 0 }}>

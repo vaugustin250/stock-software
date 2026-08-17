@@ -1,7 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
-const { requireRole } = require('../middleware/auth');
+const { authenticate, requireRole } = require('../middleware/auth');
+
+router.use(authenticate);
 
 const handleDbError = (err, res) => {
   console.error(err);

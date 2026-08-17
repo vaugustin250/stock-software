@@ -560,8 +560,8 @@ body {
   color: var(--vb-blue);
 }
 .vb-nav-item.active {
-  background: var(--vb-blue);
-  color: #fff;
+  background: var(--vb-blue-pale);
+  color: var(--vb-blue);
 }
 .vb-nav-item .nav-icon {
   width: 18px;

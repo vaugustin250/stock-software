@@ -13,7 +13,7 @@ router.get('/', requireRole(['WAREHOUSE', 'ADMIN']), async (req, res) => {
     // 1. Get all active Purchase Men
     const purchaseMen = await db('app_user')
       .select('id', 'username')
-      .where({ role: 'PURCHASE_MAN', active: true });
+      .where({ role: 'PURCHASE_MAN', is_active: true });
 
     // 2. Get combined Godown closing stock for the day (from POs)
     const pos = await db('po_entry').where({ entry_date: date });
